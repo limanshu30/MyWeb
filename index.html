@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>习惯打卡</title>
-  <link rel="stylesheet" href="/MyWeb/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="app">
@@ -30,62 +30,146 @@
             <path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.9 1.9M17.1 17.1L19 19M19 5l-1.9 1.9M6.9 17.1L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
         </button>
-        <div class="summary">
-          <p class="summary-title">今日完成</p>
-          <p class="summary-nums">
-            <strong id="doneCount">0</strong>
-            <span class="slash">/</span>
-            <span id="totalCount">0</span>
-            <span class="unit">项</span>
-          </p>
-        </div>
       </div>
     </header>
 
-    <div class="progress" role="presentation">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
+    <nav class="view-tabs" id="viewTabs" aria-label="功能切换">
+      <button class="view-tab is-active" id="tabHabits" type="button" role="tab" aria-selected="true" aria-controls="habitsPanel">习惯</button>
+      <button class="view-tab" id="tabTasks" type="button" role="tab" aria-selected="false" aria-controls="tasksPanel">每日任务</button>
+      <button class="view-tab" id="tabDiary" type="button" role="tab" aria-selected="false" aria-controls="diaryPanel">日记</button>
+    </nav>
 
-    <form class="add-bar" id="addForm">
-      <input
-        id="habitInput"
-        type="text"
-        maxlength="20"
-        placeholder="添加习惯"
-        autocomplete="off"
-        aria-label="新习惯名称"
-      />
-      <label class="goal-field" for="goalInput">
+    <section class="view-panel" id="habitsPanel" aria-label="习惯打卡">
+      <div class="summary habit-summary">
+        <p class="summary-title">今日习惯完成</p>
+        <p class="summary-nums">
+          <strong id="doneCount">0</strong>
+          <span class="slash">/</span>
+          <span id="totalCount">0</span>
+          <span class="unit">项</span>
+        </p>
+      </div>
+
+      <div class="progress" role="presentation">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <form class="add-bar" id="addForm">
         <input
-          id="goalInput"
-          type="number"
-          min="1"
-          max="99"
-          value="1"
-          inputmode="numeric"
-          aria-label="每日目标次数"
+          id="habitInput"
+          type="text"
+          maxlength="20"
+          placeholder="添加习惯"
+          autocomplete="off"
+          aria-label="新习惯名称"
         />
-        <span>次/天</span>
-      </label>
-      <button class="add-btn" type="submit" aria-label="添加习惯" title="添加习惯">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-        </svg>
-      </button>
-    </form>
+        <label class="goal-field" for="goalInput">
+          <input
+            id="goalInput"
+            type="number"
+            min="1"
+            max="99"
+            value="1"
+            inputmode="numeric"
+            aria-label="每日目标次数"
+          />
+          <span>次/天</span>
+        </label>
+        <button class="add-btn" type="submit" aria-label="添加习惯" title="添加习惯">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </form>
 
-    <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+      <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
 
-    <ul class="habit-list" id="habitList"></ul>
+      <ul class="habit-list" id="habitList"></ul>
 
-    <div class="empty-state" id="emptyState">
-      <span class="empty-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="26" height="26">
-          <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </span>
-      <p>还没有习惯</p>
-    </div>
+      <div class="empty-state" id="emptyState">
+        <span class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26">
+            <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <p>还没有习惯</p>
+      </div>
+    </section>
+
+    <section class="view-panel" id="tasksPanel" aria-label="每日任务" hidden>
+      <div class="section-head">
+        <h2>每日任务</h2>
+        <p class="task-summary">
+          <strong id="taskDoneCount">0</strong>
+          <span class="slash">/</span>
+          <span id="taskTotalCount">0</span>
+          <span class="unit">项</span>
+        </p>
+      </div>
+
+      <form class="add-bar task-add-bar" id="taskForm">
+        <input
+          id="taskInput"
+          type="text"
+          maxlength="40"
+          placeholder="添加任务"
+          autocomplete="off"
+          aria-label="新任务名称"
+        />
+        <button class="add-btn task-add-btn" type="submit" aria-label="添加任务" title="添加任务">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </form>
+
+      <ul class="task-list" id="taskList"></ul>
+
+      <div class="empty-state" id="taskEmptyState">
+        <span class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26">
+            <path d="M9 11.5l2 2 4-5M6 5.5h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <p>还没有任务</p>
+      </div>
+    </section>
+
+    <section class="view-panel" id="diaryPanel" aria-label="日记" hidden>
+      <div class="section-head diary-head">
+        <h2>日记</h2>
+        <div class="diary-date-row">
+          <input id="diaryDate" type="date" aria-label="日记日期" />
+          <button class="today-btn" id="diaryToday" type="button">今天</button>
+        </div>
+      </div>
+
+      <div class="diary-editor">
+        <textarea
+          id="diaryText"
+          rows="8"
+          maxlength="4000"
+          placeholder="写下今天想记录的事…"
+          aria-label="日记内容"
+        ></textarea>
+        <div class="diary-actions">
+          <span class="diary-status" id="diaryStatus" role="status" aria-live="polite"></span>
+          <button class="btn-primary save-diary-btn" id="saveDiaryBtn" type="button">保存日记</button>
+        </div>
+      </div>
+
+      <h3 class="diary-history-title">日记记录</h3>
+      <ul class="diary-list" id="diaryList"></ul>
+
+      <div class="empty-state" id="diaryEmptyState">
+        <span class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26">
+            <path d="M5 4.5h13a1 1 0 0 1 1 1v14l-3-2-3 2-3-2-3 2-3-2V5.5a1 1 0 0 1 1-1zM8 9h8M8 13h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <p>还没有日记</p>
+      </div>
+    </section>
 
     <footer class="app-footer">
       <button class="clear-btn" id="clearBtn" type="button" aria-label="清空所有数据" title="清空所有数据">
@@ -121,7 +205,7 @@
   <div class="confirm-mask" id="confirmMask" hidden>
     <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <p class="confirm-title" id="confirmTitle">清空所有数据？</p>
-      <p class="confirm-desc">这会删除全部习惯和每日打卡记录，且无法恢复。</p>
+      <p class="confirm-desc">这会删除全部习惯、每日任务和日记，且无法恢复。</p>
       <div class="confirm-actions">
         <button class="btn-secondary" id="cancelClear" type="button">取消</button>
         <button class="btn-danger" id="confirmClear" type="button">清空</button>
@@ -129,6 +213,6 @@
     </div>
   </div>
 
-  <script src="/MyWeb/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -22,9 +22,35 @@ const cancelGoal = document.getElementById('cancelGoal');
 const saveGoal = document.getElementById('saveGoal');
 const themeBtn = document.getElementById('themeBtn');
 
+const tabHabits = document.getElementById('tabHabits');
+const tabTasks = document.getElementById('tabTasks');
+const tabDiary = document.getElementById('tabDiary');
+const habitsPanel = document.getElementById('habitsPanel');
+const tasksPanel = document.getElementById('tasksPanel');
+const diaryPanel = document.getElementById('diaryPanel');
+const taskForm = document.getElementById('taskForm');
+const taskInput = document.getElementById('taskInput');
+const taskList = document.getElementById('taskList');
+const taskEmptyState = document.getElementById('taskEmptyState');
+const taskDoneCountEl = document.getElementById('taskDoneCount');
+const taskTotalCountEl = document.getElementById('taskTotalCount');
+const diaryDate = document.getElementById('diaryDate');
+const diaryToday = document.getElementById('diaryToday');
+const diaryText = document.getElementById('diaryText');
+const saveDiaryBtn = document.getElementById('saveDiaryBtn');
+const diaryStatus = document.getElementById('diaryStatus');
+const diaryList = document.getElementById('diaryList');
+const diaryEmptyState = document.getElementById('diaryEmptyState');
+
 let habits = [];
 let checkins = {};
+let tasks = [];
+let taskChecks = {};
+let diaries = {};
+let activeView = 'habits';
 let feedbackTimer = null;
+let diaryStatusTimer = null;
+let diarySaveTimer = null;
 let editingHabitId = null;
 
 function todayKey() {
@@ -42,6 +68,13 @@ function formatDate() {
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
   const now = new Date();
   return `${now.getMonth() + 1}月${now.getDate()}日 · ${weekdays[now.getDay()]}`;
+}
+
+function formatDiaryDate(key) {
+  const [year, month, day] = key.split('-');
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  const date = new Date(`${key}T00:00:00`);
+  return `${Number(month)}月${Number(day)}日 · ${weekdays[date.getDay()]}`;
 }
 
 function normalizeGoal(value) {
@@ -85,6 +118,57 @@ function normalizeCheckins(rawCheckins) {
   return result;
 }
 
+function normalizeTasks(rawTasks) {
+  if (!Array.isArray(rawTasks)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const raw of rawTasks) {
+    if (!raw || typeof raw !== 'object') continue;
+    const id = String(raw.id || makeId());
+    const text = String(raw.text || '').trim();
+    if (!text || seen.has(id)) continue;
+    seen.add(id);
+    result.push({ id, text });
+  }
+  return result;
+}
+
+function normalizeTaskChecks(rawTaskChecks) {
+  const result = {};
+  if (!rawTaskChecks || typeof rawTaskChecks !== 'object') return result;
+  for (const [key, value] of Object.entries(rawTaskChecks)) {
+    const day = {};
+    if (Array.isArray(value)) {
+      for (const id of value) {
+        if (id) day[id] = true;
+      }
+    } else if (value && typeof value === 'object') {
+      for (const [id, done] of Object.entries(value)) {
+        if (id && done) day[id] = true;
+      }
+    }
+    if (Object.keys(day).length > 0) result[key] = day;
+  }
+  return result;
+}
+
+function normalizeDiaries(rawDiaries) {
+  const result = {};
+  if (!rawDiaries || typeof rawDiaries !== 'object') return result;
+  for (const [key, value] of Object.entries(rawDiaries)) {
+    let text = '';
+    let updatedAt = Date.now();
+    if (value && typeof value === 'object') {
+      text = String(value.text || '').trim();
+      updatedAt = value.updatedAt || updatedAt;
+    } else {
+      text = String(value || '').trim();
+    }
+    if (text) result[key] = { text, updatedAt };
+  }
+  return result;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -92,15 +176,24 @@ function load() {
     const data = JSON.parse(raw);
     habits = normalizeHabits(data && data.habits);
     checkins = normalizeCheckins(data && data.checkins);
+    tasks = normalizeTasks(data && data.tasks);
+    taskChecks = normalizeTaskChecks(data && data.taskChecks);
+    diaries = normalizeDiaries(data && data.diaries);
   } catch (err) {
     habits = [];
     checkins = {};
+    tasks = [];
+    taskChecks = {};
+    diaries = {};
   }
 }
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, checkins }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ habits, checkins, tasks, taskChecks, diaries })
+    );
   } catch (err) {
     // 存储不可用时仅影响本次会话内的保存
   }
@@ -121,10 +214,14 @@ function isDone(habitId, key = todayKey()) {
   return countFor(habitId, key) >= goalFor(habitId);
 }
 
+function taskDone(taskId, key = todayKey()) {
+  return Boolean(taskChecks[key] && taskChecks[key][taskId]);
+}
+
 // 🎵 音效播放函数（路径已修改）
 function playTapSound() {
   try {
-    const audio = new Audio('/MyWeb/走路踢到石头石子.mp3');
+    const audio = new Audio('走路踢到石头石子.mp3');
     audio.play().catch(() => {});
   } catch (e) {}
 }
@@ -132,7 +229,7 @@ function playTapSound() {
 // 🎵 删除音效
 function playDeleteSound() {
   try {
-    const audio = new Audio('/MyWeb/枯枝.mp3');
+    const audio = new Audio('枯枝.mp3');
     audio.play().catch(() => {});
   } catch (e) {}
 }
@@ -203,13 +300,53 @@ function deleteHabit(habitId) {
   playDeleteSound();
 }
 
+function addTask(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  tasks.push({ id: makeId(), text: trimmed });
+  save();
+  renderTasks();
+  taskInput.value = '';
+  taskInput.focus();
+}
+
+function deleteTask(taskId) {
+  tasks = tasks.filter((t) => t.id !== taskId);
+  for (const key of Object.keys(taskChecks)) {
+    delete taskChecks[key][taskId];
+    if (Object.keys(taskChecks[key]).length === 0) delete taskChecks[key];
+  }
+  save();
+  renderTasks();
+  playDeleteSound();
+}
+
+function toggleTask(taskId) {
+  const key = todayKey();
+  const day = taskChecks[key] || (taskChecks[key] = {});
+  if (day[taskId]) {
+    delete day[taskId];
+  } else {
+    day[taskId] = true;
+  }
+  if (Object.keys(day).length === 0) delete taskChecks[key];
+  save();
+  renderTasks();
+  playTapSound();
+}
+
 function clearAllData() {
   localStorage.removeItem(STORAGE_KEY);
   habits = [];
   checkins = {};
+  tasks = [];
+  taskChecks = {};
+  diaries = {};
   save();
   closeConfirm();
   render();
+  renderTasks();
+  renderDiary();
   showFeedback('已清空全部数据');
 }
 
@@ -296,6 +433,14 @@ function showFeedback(message) {
   feedbackTimer = setTimeout(() => {
     feedback.classList.remove('show');
   }, 1600);
+}
+
+function showDiaryStatus(message) {
+  diaryStatus.textContent = message;
+  clearTimeout(diaryStatusTimer);
+  diaryStatusTimer = setTimeout(() => {
+    diaryStatus.textContent = '';
+  }, 1800);
 }
 
 function createHabitItem(habit) {
@@ -387,6 +532,63 @@ function createHabitItem(habit) {
   return item;
 }
 
+function createTaskItem(task) {
+  const done = taskDone(task.id);
+  const item = document.createElement('li');
+  item.className = 'task-item' + (done ? ' done' : '');
+
+  const checkBtn = document.createElement('button');
+  checkBtn.type = 'button';
+  checkBtn.className = 'check-btn task-check';
+  checkBtn.setAttribute('aria-pressed', String(done));
+  checkBtn.setAttribute('aria-label', done ? `撤销「${task.text}」` : `完成「${task.text}」`);
+  checkBtn.title = done ? '撤销完成' : '完成任务';
+  if (done) {
+    checkBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+  }
+  checkBtn.addEventListener('click', () => toggleTask(task.id));
+
+  const name = document.createElement('span');
+  name.className = 'task-name';
+  name.textContent = task.text;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'delete-btn task-delete';
+  deleteBtn.setAttribute('aria-label', `删除任务「${task.text}」`);
+  deleteBtn.title = '删除任务';
+  deleteBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>';
+  deleteBtn.addEventListener('click', () => deleteTask(task.id));
+
+  item.append(checkBtn, name, deleteBtn);
+  return item;
+}
+
+function createDiaryEntry(entryKey) {
+  const li = document.createElement('li');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'diary-entry' + (entryKey === diaryDate.value ? ' is-active' : '');
+
+  const date = document.createElement('span');
+  date.className = 'diary-entry-date';
+  date.textContent = formatDiaryDate(entryKey);
+
+  const preview = document.createElement('span');
+  preview.className = 'diary-entry-preview';
+  preview.textContent = diaries[entryKey].text.replace(/\s+/g, ' ');
+
+  button.append(date, preview);
+  button.addEventListener('click', () => {
+    diaryDate.value = entryKey;
+    renderDiary();
+  });
+  li.appendChild(button);
+  return li;
+}
+
 function render() {
   dateLabel.textContent = formatDate();
   habitList.replaceChildren(...habits.map(createHabitItem));
@@ -400,9 +602,62 @@ function render() {
   emptyState.classList.toggle('hidden', habits.length > 0);
 }
 
+function renderTasks() {
+  taskList.replaceChildren(...tasks.map(createTaskItem));
+  const doneCount = tasks.filter((t) => taskDone(t.id)).length;
+  taskDoneCountEl.textContent = doneCount;
+  taskTotalCountEl.textContent = tasks.length;
+  taskEmptyState.classList.toggle('hidden', tasks.length > 0);
+}
+
+function renderDiary() {
+  if (!diaryDate.value) diaryDate.value = todayKey();
+  const key = diaryDate.value;
+  const entry = diaries[key];
+  diaryText.value = entry ? entry.text : '';
+  diaryList.replaceChildren(
+    ...Object.keys(diaries)
+      .sort((a, b) => (a < b ? 1 : -1))
+      .map(createDiaryEntry)
+  );
+  diaryEmptyState.classList.toggle('hidden', Object.keys(diaries).length > 0);
+}
+
+function saveDiary() {
+  const key = diaryDate.value;
+  if (!key) return;
+  const text = diaryText.value.trim();
+  if (text) {
+    diaries[key] = { text, updatedAt: Date.now() };
+  } else {
+    delete diaries[key];
+  }
+  save();
+  renderDiary();
+  showDiaryStatus(text ? '已保存' : '已清空');
+}
+
+function switchView(view) {
+  activeView = view;
+  const tabs = { habits: tabHabits, tasks: tabTasks, diary: tabDiary };
+  for (const [name, tab] of Object.entries(tabs)) {
+    const active = name === view;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', String(active));
+  }
+  habitsPanel.hidden = view !== 'habits';
+  tasksPanel.hidden = view !== 'tasks';
+  diaryPanel.hidden = view !== 'diary';
+}
+
 addForm.addEventListener('submit', (event) => {
   event.preventDefault();
   addHabit(habitInput.value, goalInput.value);
+});
+
+taskForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  addTask(taskInput.value);
 });
 
 clearBtn.addEventListener('click', openConfirm);
@@ -426,6 +681,34 @@ goalDialogInput.addEventListener('keydown', (event) => {
     event.preventDefault();
     saveGoalEditor();
   }
+});
+
+tabHabits.addEventListener('click', () => switchView('habits'));
+tabTasks.addEventListener('click', () => switchView('tasks'));
+tabDiary.addEventListener('click', () => switchView('diary'));
+
+diaryToday.addEventListener('click', () => {
+  diaryDate.value = todayKey();
+  renderDiary();
+});
+diaryDate.addEventListener('change', renderDiary);
+saveDiaryBtn.addEventListener('click', saveDiary);
+diaryText.addEventListener('input', () => {
+  const pendingKey = diaryDate.value;
+  const pendingText = diaryText.value;
+  clearTimeout(diarySaveTimer);
+  diaryStatus.textContent = '编辑中';
+  diarySaveTimer = setTimeout(() => {
+    const text = pendingText.trim();
+    if (text) {
+      diaries[pendingKey] = { text, updatedAt: Date.now() };
+    } else {
+      delete diaries[pendingKey];
+    }
+    save();
+    renderDiary();
+    showDiaryStatus(text ? '已保存' : '已清空');
+  }, 700);
 });
 
 themeBtn.addEventListener('click', () => {
@@ -470,3 +753,5 @@ document.addEventListener('keydown', (event) => {
 loadTheme();
 load();
 render();
+renderTasks();
+renderDiary();
