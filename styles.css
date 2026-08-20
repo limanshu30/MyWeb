@@ -167,7 +167,11 @@ h1 {
 .clear-btn:focus-visible,
 .today-btn:focus-visible,
 .save-diary-btn:focus-visible,
-.diary-entry:focus-visible {
+.diary-entry:focus-visible,
+.date-trigger:focus-visible,
+.cal-nav-btn:focus-visible,
+.cal-day:focus-visible,
+.cal-today-btn:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 1px;
 }
@@ -686,9 +690,16 @@ html.dark .theme-btn .icon-sun {
   gap: 8px;
 }
 
-.diary-date-row input[type="date"] {
+.calendar-wrap {
+  position: relative;
+}
+
+.date-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   height: 36px;
-  padding: 0 10px;
+  padding: 0 11px;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -696,11 +707,185 @@ html.dark .theme-btn .icon-sun {
   outline: none;
   font: inherit;
   font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.diary-date-row input[type="date"]:focus {
+.date-trigger:hover {
+  border-color: var(--row-hover);
+}
+
+.date-trigger:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.date-trigger-icon {
+  flex: 0 0 auto;
+  color: var(--goal-text);
+}
+
+.date-trigger-chevron {
+  flex: 0 0 auto;
+  color: var(--icon-muted);
+  transition: transform 0.18s ease;
+}
+
+.calendar-wrap.is-open .date-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+.calendar-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(304px, calc(100vw - 32px));
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 14px 36px var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px) scale(0.98);
+  transform-origin: top right;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+  pointer-events: none;
+}
+
+.calendar-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cal-nav-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.cal-nav-btn:hover {
+  color: var(--text);
+  background: var(--secondary-bg);
+  border-color: var(--row-hover);
+}
+
+.cal-month-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.cal-weekdays span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 24px;
+  text-align: center;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-day {
+  position: relative;
+  height: 34px;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.cal-day:hover {
+  background: var(--secondary-bg);
+}
+
+.cal-day.is-other-month {
+  color: var(--placeholder);
+}
+
+.cal-day.is-today {
+  color: var(--goal-text);
+  font-weight: 700;
+}
+
+.cal-day.is-selected {
+  color: #ffffff;
+  background: var(--add-bg);
+  font-weight: 700;
+}
+
+.cal-day.has-entry::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--goal-text);
+}
+
+.cal-day.is-selected.has-entry::after {
+  background: #ffffff;
+}
+
+.calendar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.cal-entry-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cal-today-btn {
+  padding: 0;
+  color: var(--goal-text);
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  font-weight: 600;
+  transition: filter 0.15s ease;
+}
+
+.cal-today-btn:hover {
+  filter: brightness(0.97);
 }
 
 .today-btn {
@@ -973,9 +1158,5 @@ html.dark .theme-btn .icon-sun {
 
   .diary-head {
     align-items: flex-start;
-  }
-
-  .diary-date-row input[type="date"] {
-    max-width: 150px;
   }
 }

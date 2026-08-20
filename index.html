@@ -139,7 +139,54 @@
       <div class="section-head diary-head">
         <h2>日记</h2>
         <div class="diary-date-row">
-          <input id="diaryDate" type="date" aria-label="日记日期" />
+          <input id="diaryDate" type="hidden" value="" />
+          <div class="calendar-wrap">
+            <button
+              class="date-trigger"
+              id="diaryDateTrigger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-label="选择日记日期"
+            >
+              <svg class="date-trigger-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M7 3.5V7M17 3.5V7M5 8.5h14M5 5.5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span id="diaryDateLabel"></span>
+              <svg class="date-trigger-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="calendar-popover" id="calendarPopover" role="dialog" aria-label="日记日历">
+              <div class="calendar-head">
+                <button class="cal-nav-btn" id="calPrevMonth" type="button" aria-label="上个月">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <span class="cal-month-label" id="calMonthLabel"></span>
+                <button class="cal-nav-btn" id="calNextMonth" type="button" aria-label="下个月">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div class="cal-weekdays" aria-hidden="true">
+                <span>日</span>
+                <span>一</span>
+                <span>二</span>
+                <span>三</span>
+                <span>四</span>
+                <span>五</span>
+                <span>六</span>
+              </div>
+              <div class="cal-grid" id="calGrid"></div>
+              <div class="calendar-footer">
+                <span class="cal-entry-count" id="calEntryCount"></span>
+                <button class="cal-today-btn" id="calTodayBtn" type="button">回到今天</button>
+              </div>
+            </div>
+          </div>
           <button class="today-btn" id="diaryToday" type="button">今天</button>
         </div>
       </div>

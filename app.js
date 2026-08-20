@@ -41,6 +41,15 @@ const saveDiaryBtn = document.getElementById('saveDiaryBtn');
 const diaryStatus = document.getElementById('diaryStatus');
 const diaryList = document.getElementById('diaryList');
 const diaryEmptyState = document.getElementById('diaryEmptyState');
+const diaryDateTrigger = document.getElementById('diaryDateTrigger');
+const diaryDateLabel = document.getElementById('diaryDateLabel');
+const calendarPopover = document.getElementById('calendarPopover');
+const calPrevMonth = document.getElementById('calPrevMonth');
+const calNextMonth = document.getElementById('calNextMonth');
+const calMonthLabel = document.getElementById('calMonthLabel');
+const calGrid = document.getElementById('calGrid');
+const calEntryCount = document.getElementById('calEntryCount');
+const calTodayBtn = document.getElementById('calTodayBtn');
 
 let habits = [];
 let checkins = {};
@@ -51,6 +60,7 @@ let activeView = 'habits';
 let feedbackTimer = null;
 let diaryStatusTimer = null;
 let diarySaveTimer = null;
+let calendarViewDate = null;
 let editingHabitId = null;
 
 function todayKey() {
@@ -75,6 +85,76 @@ function formatDiaryDate(key) {
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
   const date = new Date(`${key}T00:00:00`);
   return `${Number(month)}月${Number(day)}日 · ${weekdays[date.getDay()]}`;
+}
+
+function dateFromKey(key) {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function closeCalendar() {
+  calendarPopover.classList.remove('is-open');
+  calendarPopover.parentElement.classList.remove('is-open');
+  diaryDateTrigger.setAttribute('aria-expanded', 'false');
+}
+
+function openCalendar() {
+  const base = diaryDate.value ? dateFromKey(diaryDate.value) : new Date();
+  calendarViewDate = new Date(base.getFullYear(), base.getMonth(), 1);
+  renderCalendar();
+  calendarPopover.classList.add('is-open');
+  calendarPopover.parentElement.classList.add('is-open');
+  diaryDateTrigger.setAttribute('aria-expanded', 'true');
+  const selected = calGrid.querySelector('.cal-day.is-selected');
+  if (selected) selected.focus();
+}
+
+function renderCalendar() {
+  const selectedKey = diaryDate.value || todayKey();
+  const view = calendarViewDate || dateFromKey(selectedKey);
+  const year = view.getFullYear();
+  const month = view.getMonth();
+  calMonthLabel.textContent = `${year}年${month + 1}月`;
+
+  const firstDay = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - firstDay.getDay());
+  const cells = [];
+
+  for (let i = 0; i < 42; i += 1) {
+    const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+    const key = toKey(date);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cal-day';
+    button.textContent = String(date.getDate());
+    button.dataset.key = key;
+
+    if (date.getMonth() !== month) button.classList.add('is-other-month');
+    if (key === todayKey()) button.classList.add('is-today');
+    if (key === selectedKey) button.classList.add('is-selected');
+    if (diaries[key]) button.classList.add('has-entry');
+    button.setAttribute('aria-label', `${formatDiaryDate(key)}${diaries[key] ? '，已写日记' : ''}`);
+    button.addEventListener('click', () => selectCalendarDate(key));
+    cells.push(button);
+  }
+
+  calGrid.replaceChildren(...cells);
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const count = Object.keys(diaries).filter((key) => key.startsWith(monthPrefix)).length;
+  calEntryCount.textContent = count ? `本月 ${count} 篇` : '本月还没有日记';
+}
+
+function shiftCalendarMonth(offset) {
+  const view = calendarViewDate || dateFromKey(diaryDate.value || todayKey());
+  calendarViewDate = new Date(view.getFullYear(), view.getMonth() + offset, 1);
+  renderCalendar();
+}
+
+function selectCalendarDate(key) {
+  diaryDate.value = key;
+  calendarViewDate = null;
+  renderDiary();
+  closeCalendar();
 }
 
 function normalizeGoal(value) {
@@ -614,6 +694,7 @@ function renderDiary() {
   if (!diaryDate.value) diaryDate.value = todayKey();
   const key = diaryDate.value;
   const entry = diaries[key];
+  diaryDateLabel.textContent = formatDiaryDate(key);
   diaryText.value = entry ? entry.text : '';
   diaryList.replaceChildren(
     ...Object.keys(diaries)
@@ -621,6 +702,9 @@ function renderDiary() {
       .map(createDiaryEntry)
   );
   diaryEmptyState.classList.toggle('hidden', Object.keys(diaries).length > 0);
+  if (calendarPopover.classList.contains('is-open')) {
+    renderCalendar();
+  }
 }
 
 function saveDiary() {
@@ -648,6 +732,7 @@ function switchView(view) {
   habitsPanel.hidden = view !== 'habits';
   tasksPanel.hidden = view !== 'tasks';
   diaryPanel.hidden = view !== 'diary';
+  closeCalendar();
 }
 
 addForm.addEventListener('submit', (event) => {
@@ -689,9 +774,31 @@ tabDiary.addEventListener('click', () => switchView('diary'));
 
 diaryToday.addEventListener('click', () => {
   diaryDate.value = todayKey();
+  calendarViewDate = null;
   renderDiary();
+  closeCalendar();
 });
-diaryDate.addEventListener('change', renderDiary);
+diaryDateTrigger.addEventListener('click', () => {
+  if (calendarPopover.classList.contains('is-open')) {
+    closeCalendar();
+  } else {
+    openCalendar();
+  }
+});
+calPrevMonth.addEventListener('click', () => shiftCalendarMonth(-1));
+calNextMonth.addEventListener('click', () => shiftCalendarMonth(1));
+calTodayBtn.addEventListener('click', () => {
+  calendarViewDate = new Date();
+  renderCalendar();
+});
+document.addEventListener('click', (event) => {
+  if (
+    calendarPopover.classList.contains('is-open') &&
+    !event.target.closest('.calendar-wrap')
+  ) {
+    closeCalendar();
+  }
+});
 saveDiaryBtn.addEventListener('click', saveDiary);
 diaryText.addEventListener('input', () => {
   const pendingKey = diaryDate.value;
@@ -743,7 +850,9 @@ if (window.matchMedia) {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  if (!goalMask.hidden) {
+  if (calendarPopover.classList.contains('is-open')) {
+    closeCalendar();
+  } else if (!goalMask.hidden) {
     closeGoalEditor();
   } else if (!confirmMask.hidden) {
     closeConfirm();
