@@ -9,19 +9,15 @@
 <body>
   <main class="app">
     <header class="topbar">
-      <div>
-        <h1>习惯打卡</h1>
-        <p class="date" id="dateLabel"></p>
-      </div>
+      <div><h1>习惯打卡</h1><p class="date" id="dateLabel"></p></div>
       <div class="top-actions">
-        <button
-          class="theme-btn"
-          id="themeBtn"
-          type="button"
-          aria-label="切换夜间模式"
-          aria-pressed="false"
-          title="切换夜间模式"
-        >
+        <button class="theme-btn palette-btn" id="paletteBtn" type="button" aria-label="打开配色面板" title="自定义配色">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+            <path d="M12 2a10 10 0 0 1 10 10c0 2.5-1.5 4.5-3.5 4.5-0.8 0-1.6-0.4-2-1.1l-0.5-1.1c-0.4-0.9-1.2-1.3-2.1-1.3-1.2 0-2.2 1-2.2 2.2 0 0.6 0.2 1.1 0.6 1.5l0.4 0.4c0.5 0.5 0.8 1.2 0.8 1.9 0 1.8-1.5 3-3.5 3A10 10 0 0 1 2 12 10 10 0 0 1 12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button class="theme-btn" id="themeBtn" type="button" aria-label="切换夜间模式" aria-pressed="false" title="切换夜间模式">
           <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path d="M20.4 13.1A8.5 8.5 0 1 1 10.9 3.6a7 7 0 0 0 9.5 9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
@@ -37,61 +33,29 @@
       <button class="view-tab is-active" id="tabHabits" type="button" role="tab" aria-selected="true" aria-controls="habitsPanel">习惯</button>
       <button class="view-tab" id="tabTasks" type="button" role="tab" aria-selected="false" aria-controls="tasksPanel">每日任务</button>
       <button class="view-tab" id="tabDiary" type="button" role="tab" aria-selected="false" aria-controls="diaryPanel">日记</button>
+      <div class="tab-bg-slider" id="tabBgSlider"></div>
     </nav>
 
     <section class="view-panel" id="habitsPanel" aria-label="习惯打卡">
       <div class="summary habit-summary">
         <p class="summary-title">今日习惯完成</p>
-        <p class="summary-nums">
-          <strong id="doneCount">0</strong>
-          <span class="slash">/</span>
-          <span id="totalCount">0</span>
-          <span class="unit">项</span>
-        </p>
+        <p class="summary-nums"><strong id="doneCount">0</strong><span class="slash">/</span><span id="totalCount">0</span><span class="unit">项</span></p>
       </div>
-
-      <div class="progress" role="presentation">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-
+      <div class="progress" role="presentation"><div class="progress-fill" id="progressFill"></div></div>
       <form class="add-bar" id="addForm">
-        <input
-          id="habitInput"
-          type="text"
-          maxlength="20"
-          placeholder="添加习惯"
-          autocomplete="off"
-          aria-label="新习惯名称"
-        />
+        <input id="habitInput" type="text" maxlength="20" placeholder="添加习惯" autocomplete="off" aria-label="新习惯名称" />
         <label class="goal-field" for="goalInput">
-          <input
-            id="goalInput"
-            type="number"
-            min="1"
-            max="99"
-            value="1"
-            inputmode="numeric"
-            aria-label="每日目标次数"
-          />
+          <input id="goalInput" type="number" min="1" max="99" value="1" inputmode="numeric" aria-label="每日目标次数" />
           <span>次/天</span>
         </label>
         <button class="add-btn" type="submit" aria-label="添加习惯" title="添加习惯">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-          </svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /></svg>
         </button>
       </form>
-
       <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
-
       <ul class="habit-list" id="habitList"></ul>
-
       <div class="empty-state" id="emptyState">
-        <span class="empty-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="26" height="26">
-            <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
         <p>还没有习惯</p>
       </div>
     </section>
@@ -99,38 +63,17 @@
     <section class="view-panel" id="tasksPanel" aria-label="每日任务" hidden>
       <div class="section-head">
         <h2>每日任务</h2>
-        <p class="task-summary">
-          <strong id="taskDoneCount">0</strong>
-          <span class="slash">/</span>
-          <span id="taskTotalCount">0</span>
-          <span class="unit">项</span>
-        </p>
+        <p class="task-summary"><strong id="taskDoneCount">0</strong><span class="slash">/</span><span id="taskTotalCount">0</span><span class="unit">项</span></p>
       </div>
-
       <form class="add-bar task-add-bar" id="taskForm">
-        <input
-          id="taskInput"
-          type="text"
-          maxlength="40"
-          placeholder="添加任务"
-          autocomplete="off"
-          aria-label="新任务名称"
-        />
+        <input id="taskInput" type="text" maxlength="40" placeholder="添加任务" autocomplete="off" aria-label="新任务名称" />
         <button class="add-btn task-add-btn" type="submit" aria-label="添加任务" title="添加任务">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-          </svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" /></svg>
         </button>
       </form>
-
       <ul class="task-list" id="taskList"></ul>
-
       <div class="empty-state" id="taskEmptyState">
-        <span class="empty-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="26" height="26">
-            <path d="M9 11.5l2 2 4-5M6 5.5h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M9 11.5l2 2 4-5M6 5.5h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
         <p>还没有任务</p>
       </div>
     </section>
@@ -141,124 +84,116 @@
         <div class="diary-date-row">
           <input id="diaryDate" type="hidden" value="" />
           <div class="calendar-wrap">
-            <button
-              class="date-trigger"
-              id="diaryDateTrigger"
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded="false"
-              aria-label="选择日记日期"
-            >
-              <svg class="date-trigger-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="M7 3.5V7M17 3.5V7M5 8.5h14M5 5.5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+            <button class="date-trigger" id="diaryDateTrigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="选择日记日期">
+              <svg class="date-trigger-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 3.5V7M17 3.5V7M5 8.5h14M5 5.5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
               <span id="diaryDateLabel"></span>
-              <svg class="date-trigger-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+              <svg class="date-trigger-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </button>
             <div class="calendar-popover" id="calendarPopover" role="dialog" aria-label="日记日历">
               <div class="calendar-head">
-                <button class="cal-nav-btn" id="calPrevMonth" type="button" aria-label="上个月">
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
+                <button class="cal-nav-btn" id="calPrevMonth" type="button" aria-label="上个月"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
                 <span class="cal-month-label" id="calMonthLabel"></span>
-                <button class="cal-nav-btn" id="calNextMonth" type="button" aria-label="下个月">
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
+                <button class="cal-nav-btn" id="calNextMonth" type="button" aria-label="下个月"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg></button>
               </div>
-              <div class="cal-weekdays" aria-hidden="true">
-                <span>日</span>
-                <span>一</span>
-                <span>二</span>
-                <span>三</span>
-                <span>四</span>
-                <span>五</span>
-                <span>六</span>
-              </div>
+              <div class="cal-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
               <div class="cal-grid" id="calGrid"></div>
-              <div class="calendar-footer">
-                <span class="cal-entry-count" id="calEntryCount"></span>
-                <button class="cal-today-btn" id="calTodayBtn" type="button">回到今天</button>
-              </div>
+              <div class="calendar-footer"><span class="cal-entry-count" id="calEntryCount"></span><button class="cal-today-btn" id="calTodayBtn" type="button">回到今天</button></div>
             </div>
           </div>
           <button class="today-btn" id="diaryToday" type="button">今天</button>
         </div>
       </div>
-
       <div class="diary-editor">
-        <textarea
-          id="diaryText"
-          rows="8"
-          maxlength="4000"
-          placeholder="写下今天想记录的事…"
-          aria-label="日记内容"
-        ></textarea>
-        <div class="diary-actions">
-          <span class="diary-status" id="diaryStatus" role="status" aria-live="polite"></span>
-          <button class="btn-primary save-diary-btn" id="saveDiaryBtn" type="button">保存日记</button>
-        </div>
+        <textarea id="diaryText" rows="8" maxlength="4000" placeholder="写下今天想记录的事…" aria-label="日记内容"></textarea>
+        <div class="diary-actions"><span class="diary-status" id="diaryStatus" role="status" aria-live="polite"></span><button class="btn-primary save-diary-btn" id="saveDiaryBtn" type="button">保存日记</button></div>
       </div>
-
       <h3 class="diary-history-title">日记记录</h3>
       <ul class="diary-list" id="diaryList"></ul>
-
       <div class="empty-state" id="diaryEmptyState">
-        <span class="empty-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="26" height="26">
-            <path d="M5 4.5h13a1 1 0 0 1 1 1v14l-3-2-3 2-3-2-3 2-3-2V5.5a1 1 0 0 1 1-1zM8 9h8M8 13h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 4.5h13a1 1 0 0 1 1 1v14l-3-2-3 2-3-2-3 2-3-2V5.5a1 1 0 0 1 1-1zM8 9h8M8 13h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
         <p>还没有日记</p>
       </div>
     </section>
 
-    <footer class="app-footer">
-      <button class="clear-btn" id="clearBtn" type="button" aria-label="清空所有数据" title="清空所有数据">
-        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-          <path d="M4 7h16M9 7V4h6v3m-9 0l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        清空数据
-      </button>
-    </footer>
+    <footer class="app-footer"><button class="clear-btn" id="clearBtn" type="button" aria-label="清空所有数据" title="清空所有数据"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>清空数据</button></footer>
   </main>
 
-  <div class="confirm-mask" id="goalMask" hidden>
-    <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="goalTitle">
-      <p class="confirm-title" id="goalTitle">每日目标</p>
-      <p class="confirm-desc"><span id="goalHabitName"></span> 每天打算打卡几次？</p>
-      <input
-        class="goal-input"
-        id="goalDialogInput"
-        type="number"
-        min="1"
-        max="99"
-        value="1"
-        inputmode="numeric"
-        aria-label="每日目标次数"
-      />
-      <div class="confirm-actions">
-        <button class="btn-secondary" id="cancelGoal" type="button">取消</button>
-        <button class="btn-primary" id="saveGoal" type="button">保存</button>
+  <!-- 🎨 配色面板 -->
+  <div class="palette-mask" id="paletteMask" hidden>
+    <div class="palette-panel" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
+      <div class="palette-header"><h2 id="paletteTitle">🎨 自定义配色</h2><button class="palette-close" id="paletteClose" type="button">&times;</button></div>
+
+      <div class="palette-mode-bar">
+        <div class="palette-mode-icon-wrap">
+          <button class="palette-mode-icon-btn" id="paletteModeToggle" type="button" aria-label="切换亮/暗配色模式">
+            <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.9 1.9M17.1 17.1L19 19M19 5l-1.9 1.9M6.9 17.1L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M20.4 13.1A8.5 8.5 0 1 1 10.9 3.6a7 7 0 0 0 9.5 9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <span id="paletteModeLabel">亮色模式</span>
+        </div>
+        <div class="palette-actions">
+          <button class="btn-danger" id="paletteResetAll" type="button">重置全部配色</button>
+        </div>
+      </div>
+
+      <div class="palette-groups" id="paletteGroups">
+        <div class="palette-group" data-group="bg">
+          <div class="palette-group-header"><h3>背景</h3><button class="reset-swatches-btn" data-group="bg">重置色板</button></div>
+          <div class="palette-item"><label>页面背景</label><div class="color-input-wrap"><input type="color" data-var="--bg" /></div></div>
+          <div class="palette-item"><label>卡片 / 输入框</label><div class="color-input-wrap"><input type="color" data-var="--surface" /></div></div>
+          <div class="palette-item"><label>分隔线 / 标签栏底色</label><div class="color-input-wrap"><input type="color" data-var="--line" /></div></div>
+        </div>
+        <div class="palette-group" data-group="text">
+          <div class="palette-group-header"><h3>文字</h3><button class="reset-swatches-btn" data-group="text">重置色板</button></div>
+          <div class="palette-item"><label>主要文字</label><div class="color-input-wrap"><input type="color" data-var="--text" /></div></div>
+          <div class="palette-item"><label>次要文字（辅助说明）</label><div class="color-input-wrap"><input type="color" data-var="--muted" /></div></div>
+        </div>
+        <div class="palette-group" data-group="interact">
+          <div class="palette-group-header"><h3>交互 &amp; 强调</h3><button class="reset-swatches-btn" data-group="interact">重置色板</button></div>
+          <div class="palette-item"><label>主色调（进度条 / 勾选）</label><div class="color-input-wrap"><input type="color" data-var="--accent" /></div></div>
+          <div class="palette-item"><label>添加按钮背景</label><div class="color-input-wrap"><input type="color" data-var="--add-bg" /></div></div>
+        </div>
+        <div class="palette-group" data-group="slider">
+          <div class="palette-group-header"><h3>标签栏滑块</h3><button class="reset-swatches-btn" data-group="slider">重置色板</button></div>
+          <div class="palette-item"><label>滑块背景色</label><div class="color-input-wrap"><input type="color" id="paletteSliderColor" data-var="--slider-bg" /></div></div>
+        </div>
+      </div>
+
+      <div class="palette-presets">
+        <h3>📁 配色预设</h3>
+        <div class="preset-bar">
+          <input type="text" id="presetNameInput" placeholder="输入预设名称..." maxlength="30" />
+          <button class="btn-primary" id="presetSaveBtn" type="button">保存为新预设</button>
+          <button class="btn-secondary" id="presetOverwriteBtn" type="button" style="display:none;">覆盖</button>
+        </div>
+        <ul class="preset-list" id="presetList"></ul>
+        <p class="palette-tip">💡 保存当前配色为预设，随时加载切换。</p>
+      </div>
+    </div>
+
+    <div class="color-picker" id="colorPicker" hidden role="dialog" aria-label="选择颜色">
+      <div class="picker-sv" id="pickerSvArea">
+        <span class="picker-sv-thumb" id="pickerSvThumb"></span>
+      </div>
+      <div class="picker-row">
+        <label class="picker-hex-label" for="pickerHue">色相</label>
+        <input class="picker-hue" id="pickerHue" type="range" min="0" max="360" value="0" aria-label="色相" />
+      </div>
+      <div class="picker-row">
+        <span class="picker-preview" id="pickerPreview"></span>
+        <label class="picker-hex-label" for="pickerHex">Hex</label>
+        <input class="picker-hex" id="pickerHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="十六进制颜色" />
       </div>
     </div>
   </div>
 
-  <div class="confirm-mask" id="confirmMask" hidden>
-    <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-      <p class="confirm-title" id="confirmTitle">清空所有数据？</p>
-      <p class="confirm-desc">这会删除全部习惯、每日任务和日记，且无法恢复。</p>
-      <div class="confirm-actions">
-        <button class="btn-secondary" id="cancelClear" type="button">取消</button>
-        <button class="btn-danger" id="confirmClear" type="button">清空</button>
-      </div>
-    </div>
-  </div>
+  <div class="confirm-mask" id="goalMask" hidden><div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="goalTitle"><p class="confirm-title" id="goalTitle">每日目标</p><p class="confirm-desc"><span id="goalHabitName"></span> 每天打算打卡几次？</p><input class="goal-input" id="goalDialogInput" type="number" min="1" max="99" value="1" inputmode="numeric" aria-label="每日目标次数" /><div class="confirm-actions"><button class="btn-secondary" id="cancelGoal" type="button">取消</button><button class="btn-primary" id="saveGoal" type="button">保存</button></div></div></div>
+  <div class="confirm-mask" id="confirmMask" hidden><div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle"><p class="confirm-title" id="confirmTitle">清空所有数据？</p><p class="confirm-desc">这会删除全部习惯、每日任务和日记，且无法恢复。</p><div class="confirm-actions"><button class="btn-secondary" id="cancelClear" type="button">取消</button><button class="btn-danger" id="confirmClear" type="button">清空</button></div></div></div>
 
   <script src="app.js"></script>
 </body>
