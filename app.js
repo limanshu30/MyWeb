@@ -846,9 +846,9 @@ function storeSwatches(swatches) {
 function getSwatchesForVar(varName) {
   const stored = getStoredSwatches();
   if (stored[varName] && stored[varName].length > 0) {
-    return stored[varName];
+    return [...stored[varName]]; // 返回副本
   }
-  return DEFAULT_SWATCHES[varName] || ['#FFFFFF', '#E0E0E0', '#BDBDBD'];
+  return [...(DEFAULT_SWATCHES[varName] || ['#FFFFFF', '#E0E0E0', '#BDBDBD'])];
 }
 
 function setSwatchesForVar(varName, colors) {
@@ -858,12 +858,14 @@ function setSwatchesForVar(varName, colors) {
 }
 
 function resetSwatchesForGroup(groupName) {
+  window._editingSwatch = null; // 清理编辑状态
   const vars = GROUP_VARS[groupName] || [];
   const stored = getStoredSwatches();
   for (const v of vars) {
     delete stored[v];
   }
   storeSwatches(stored);
+  // 重新渲染该分组下的色块
   const groupEl = paletteGroups.querySelector(`.palette-group[data-group="${groupName}"]`);
   if (groupEl) {
     const items = groupEl.querySelectorAll('.palette-item');
@@ -991,17 +993,23 @@ function initAllSwatches() {
   }
 }
 
+// ---------- 重置色板（事件委托，只绑定一次） ----------
 function setupResetSwatches() {
-  document.querySelectorAll('.reset-swatches-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const group = btn.dataset.group;
-      if (!group) return;
-      if (!confirm(`确定要重置「${btn.closest('.palette-group').querySelector('h3')?.textContent || group}」的色板吗？`)) return;
-      resetSwatchesForGroup(group);
-      showFeedback(`已重置色板`);
-    });
-  });
+  // 使用事件委托，移除之前可能绑定的重复监听
+  paletteGroups.removeEventListener('click', resetSwatchesHandler);
+  paletteGroups.addEventListener('click', resetSwatchesHandler);
+}
+
+function resetSwatchesHandler(e) {
+  const btn = e.target.closest('.reset-swatches-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  const group = btn.dataset.group;
+  if (!group) return;
+  const groupName = btn.closest('.palette-group')?.querySelector('h3')?.textContent || group;
+  if (!confirm(`确定要重置「${groupName}」的色板吗？`)) return;
+  resetSwatchesForGroup(group);
+  showFeedback('已重置色板');
 }
 
 // ============================================================
@@ -1343,7 +1351,7 @@ function openPalette() {
   loadAndApplyColors();
   renderPresetList();
   initAllSwatches();
-  setupResetSwatches();
+  setupResetSwatches(); // 确保委托已绑定（只绑定一次）
   paletteMask.hidden = false;
 }
 function closePalette() {
@@ -1418,6 +1426,7 @@ function init() {
   renderPresetList();
   setupColorInputSync();
   setupColorPicker();
+  setupResetSwatches(); // 初始化一次委托
   setupMainSwipe();
   setupCalendarSwipe();
   requestAnimationFrame(updateTabBackground);
