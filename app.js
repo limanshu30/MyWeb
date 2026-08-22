@@ -1031,11 +1031,11 @@ function setupSwipe() {
       const currentDate = dateFromKey(currentKey);
       let newDate;
       if (diffX < 0) {
-        // 左滑 → 明天
-        newDate = addDays(currentDate, 1);
-      } else {
-        // 右滑 → 昨天
+        // 左滑 → 昨天
         newDate = addDays(currentDate, -1);
+      } else {
+        // 右滑 → 明天
+        newDate = addDays(currentDate, 1);
       }
       const newKey = toKey(newDate);
       diaryDate.value = newKey;
