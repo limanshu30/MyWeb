@@ -408,7 +408,7 @@ const DEFAULT_SWATCHES = {
 const BUILTIN_PRESETS = {
   '莓语轻风': {
     '--bg': '#F8F4E8',
-    '--surface': '#FFFFFF',
+    '--surface': '#D5EBE4',
     '--line': '#E8E0D0',
     '--text': '#775C56',
     '--muted': '#A89888',
