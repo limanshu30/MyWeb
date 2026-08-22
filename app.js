@@ -4,6 +4,254 @@ const COLOR_CONFIG_KEY = 'habit-tracker-colors-v2';
 const PRESETS_KEY = 'habit-tracker-presets';
 const SWATCHES_KEY = 'habit-tracker-swatches';
 
+// ============================================================
+// 本地文件存储管理器
+// ============================================================
+const StorageManager = {
+  _fileHandle: null,
+  _currentFileName: '习惯打卡数据.json',
+  _saveTimer: null,
+
+  async init() {
+    // 检查是否支持 File System Access API
+    if (!window.showOpenFilePicker && !window.showSaveFilePicker) {
+      console.log('File System Access API 不可用，使用 localStorage');
+      return false;
+    }
+    // 尝试从上次打开的文件恢复
+    try {
+      const handle = await this._getStoredFileHandle();
+      if (handle) {
+        this._fileHandle = handle;
+        await this.loadFromFile();
+        return true;
+      }
+    } catch (e) {
+      console.log('恢复文件失败，使用 localStorage', e);
+    }
+    return false;
+  },
+
+  _getStoredFileHandle() {
+    try {
+      const raw = localStorage.getItem('habit-tracker-file-handle');
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
+  },
+
+  _storeFileHandle(handle) {
+    try {
+      localStorage.setItem('habit-tracker-file-handle', JSON.stringify(handle));
+    } catch {}
+  },
+
+  _removeStoredFileHandle() {
+    try {
+      localStorage.removeItem('habit-tracker-file-handle');
+    } catch {}
+  },
+
+  async openFile() {
+    if (!window.showOpenFilePicker) {
+      showFeedback('浏览器不支持文件选择，使用 localStorage');
+      return false;
+    }
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{
+          description: 'JSON 文件',
+          accept: { 'application/json': ['.json'] }
+        }],
+        multiple: false
+      });
+      this._fileHandle = handle;
+      this._storeFileHandle(handle);
+      await this.loadFromFile();
+      this._currentFileName = handle.name;
+      showFeedback(`已打开: ${handle.name}`);
+      updateFileStatus(handle.name);
+      return true;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error('打开文件失败', e);
+        showFeedback('打开文件失败');
+      }
+      return false;
+    }
+  },
+
+  async saveFile() {
+    if (!this._fileHandle) {
+      // 如果没有打开的文件，先创建
+      return this.createFile();
+    }
+    try {
+      const writable = await this._fileHandle.createWritable();
+      await writable.write(JSON.stringify(this._exportData(), null, 2));
+      await writable.close();
+      showFeedback(`已保存到 ${this._currentFileName}`);
+      return true;
+    } catch (e) {
+      console.error('保存文件失败', e);
+      showFeedback('保存失败');
+      return false;
+    }
+  },
+
+  async createFile() {
+    if (!window.showSaveFilePicker) {
+      showFeedback('浏览器不支持文件保存');
+      return false;
+    }
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: '习惯打卡数据.json',
+        types: [{
+          description: 'JSON 文件',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      this._fileHandle = handle;
+      this._storeFileHandle(handle);
+      await this.saveFile();
+      return true;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error('创建文件失败', e);
+        showFeedback('创建文件失败');
+      }
+      return false;
+    }
+  },
+
+  async exportFile() {
+    const blob = new Blob([JSON.stringify(this._exportData(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '习惯打卡数据.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  showFeedback('已导出');
+  },
+
+  async importFile() {
+    if (!window.showOpenFilePicker) {
+      showFeedback('浏览器不支持文件选择');
+      return false;
+    }
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{
+          description: 'JSON 文件',
+          accept: { 'application/json': ['.json'] }
+        }],
+        multiple: false
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      // 导入数据
+      habits = normalizeHabits(data?.habits);
+      checkins = normalizeCheckins(data?.checkins);
+      tasks = normalizeTasks(data?.tasks);
+      taskChecks = normalizeTaskChecks(data?.taskChecks);
+      diaries = normalizeDiaries(data?.diaries);
+      // 恢复配色和主题
+      if (data.colors) { storeColors(data.colors); }
+      if (data.swatches) { storeSwatches(data.swatches); }
+      if (data.presets) { savePresets(data.presets); }
+      if (data.theme) { applyTheme(data.theme); }
+      // 设置文件句柄
+      this._fileHandle = handle;
+      this._storeFileHandle(handle);
+      this._currentFileName = handle.name;
+      save();
+      render();
+      renderTasks();
+      renderDiary();
+      renderPresetList();
+      loadAndApplyColors();
+      initAllSwatches();
+      showFeedback(`已导入: ${handle.name}`);
+      updateFileStatus(handle.name);
+      return true;
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error('导入文件失败', e);
+        showFeedback('导入失败');
+      }
+      return false;
+    }
+  },
+
+  _exportData() {
+    return {
+      habits,
+      checkins,
+      tasks,
+      taskChecks,
+      diaries,
+      colors: getStoredColors(),
+      swatches: getStoredSwatches(),
+      presets: getPresets(),
+      theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+    };
+  },
+
+  async loadFromFile() {
+    if (!this._fileHandle) return;
+    try {
+      const file = await this._fileHandle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      habits = normalizeHabits(data?.habits);
+      checkins = normalizeCheckins(data?.checkins);
+      tasks = normalizeTasks(data?.tasks);
+      taskChecks = normalizeTaskChecks(data?.taskChecks);
+      diaries = normalizeDiaries(data?.diaries);
+      if (data.colors) { storeColors(data.colors); }
+      if (data.swatches) { storeSwatches(data.swatches); }
+      if (data.presets) { savePresets(data.presets); }
+      if (data.theme) { applyTheme(data.theme); }
+    } catch (e) {
+      console.error('加载文件失败', e);
+      showFeedback('加载文件失败');
+    }
+  },
+
+  // 重写 save 方法
+  save: function() {
+    try {
+      const data = { habits, checkins, tasks, taskChecks, diaries };
+      if (this._fileHandle) {
+        // 防抖自动保存
+        clearTimeout(this._saveTimer);
+        this._saveTimer = setTimeout(async () => {
+          try {
+            const writable = await this._fileHandle.createWritable();
+            await writable.write(JSON.stringify(data, null, 2));
+            await writable.close();
+          } catch (e) {
+            console.error('自动保存失败', e);
+          }
+        }, 500);
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+    } catch (e) {}
+  }
+};
+
+// 更新界面状态显示
+function updateFileStatus(fileName) {
+  const statusEl = document.getElementById('fileStatus');
+  if (statusEl) {
+    statusEl.textContent = fileName ? fileName : '';
+  }
+}
+
 // ---------- DOM 引用 ----------
 const addForm = document.getElementById('addForm');
 const habitInput = document.getElementById('habitInput');
@@ -25,6 +273,12 @@ const goalDialogInput = document.getElementById('goalDialogInput');
 const cancelGoal = document.getElementById('cancelGoal');
 const saveGoal = document.getElementById('saveGoal');
 const themeBtn = document.getElementById('themeBtn');
+const openFileBtn = document.getElementById('openFileBtn');
+const saveFileBtn = document.getElementById('saveFileBtn');
+const exportFileBtn = document.getElementById('exportFileBtn');
+const importFileBtn = document.getElementById('importFileBtn');
+const fileMenuBtn = document.getElementById('fileMenuBtn');
+const fileMenu = document.getElementById('fileMenu');
 
 const tabHabits = document.getElementById('tabHabits');
 const tabTasks = document.getElementById('tabTasks');
@@ -57,7 +311,7 @@ const calTodayBtn = document.getElementById('calTodayBtn');
 const tabBgSlider = document.getElementById('tabBgSlider');
 const app = document.querySelector('.app');
 
-// 🎨 配色面板
+// 配色面板
 const paletteBtn = document.getElementById('paletteBtn');
 const paletteMask = document.getElementById('paletteMask');
 const paletteClose = document.getElementById('paletteClose');
@@ -74,7 +328,7 @@ const pickerHex = document.getElementById('pickerHex');
 const pickerPreview = document.getElementById('pickerPreview');
 const palettePanel = document.querySelector('.palette-panel');
 
-// 📁 预设
+// 预设
 const presetNameInput = document.getElementById('presetNameInput');
 const presetSaveBtn = document.getElementById('presetSaveBtn');
 const presetOverwriteBtn = document.getElementById('presetOverwriteBtn');
@@ -189,6 +443,12 @@ function normalizeGoal(v) {
 // ---------- 数据持久化 ----------
 function load() {
   try {
+    // 先尝试从 StorageManager 加载（如果已打开文件）
+    if (StorageManager._fileHandle) {
+      StorageManager.loadFromFile();
+      return;
+    }
+    // 否则从 localStorage 加载
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
@@ -196,11 +456,23 @@ function load() {
     checkins = normalizeCheckins(data?.checkins);
     tasks = normalizeTasks(data?.tasks);
     taskChecks = normalizeTaskChecks(data?.taskChecks);
+    carryOverTasks();
     diaries = normalizeDiaries(data?.diaries);
   } catch (e) { habits = []; checkins = {}; tasks = []; taskChecks = {}; diaries = {}; }
 }
+function carryOverTasks() {
+  const today = todayKey();
+  for (const task of tasks) {
+    if (task.createdAt < today && !taskDone(task.id)) {
+      if (!tasks.some(t => t.text === task.text && t.createdAt === today)) {
+        tasks.push({ id: makeId(), text: task.text, createdAt: today });
+      }
+    }
+  }
+  save();
+}
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, checkins, tasks, taskChecks, diaries })); } catch (e) {}
+  StorageManager.save();
 }
 function normalizeHabits(raw) {
   if (!Array.isArray(raw)) return [];
@@ -242,7 +514,7 @@ function normalizeTasks(raw) {
     const text = String(r.text || '').trim();
     if (!text || seen.has(id)) continue;
     seen.add(id);
-    result.push({ id, text });
+    result.push({ id, text, createdAt: r.createdAt || todayKey() });
   }
   return result;
 }
@@ -281,12 +553,48 @@ function isDone(habitId, key = todayKey()) { return countFor(habitId, key) >= go
 function taskDone(taskId, key = todayKey()) { return Boolean(taskChecks[key] && taskChecks[key][taskId]); }
 function playTapSound() { try { new Audio('走路踢到石头石子.mp3').play().catch(() => {}); } catch (e) {} }
 function playDeleteSound() { try { new Audio('枯枝.mp3').play().catch(() => {}); } catch (e) {} }
+function burstConfetti(x, y) {
+  const colors = getComputedStyle(document.documentElement);
+  const palette = [
+    (colors.getPropertyValue('--accent') || '#f48fb1').trim(),
+    (colors.getPropertyValue('--goal-text') || '#d2568a').trim(),
+    (colors.getPropertyValue('--warn-text') || '#c07b2a').trim(),
+    '#fff3d6', '#f48fb1', '#e8a87c', '#e8c9a0'
+  ].filter(c => c);
+  const pieceCount = 18;
+  for (let i = 0; i < pieceCount; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    const angle = (Math.PI * 2 * i) / pieceCount + (Math.random() - 0.5) * 0.8;
+    const dist = 60 + Math.random() * 80;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.background = palette[i % palette.length];
+    el.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    el.style.setProperty('--dy', (Math.sin(angle) * dist - 30) + 'px');
+    el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    el.style.width = (5 + Math.random() * 5) + 'px';
+    el.style.height = (5 + Math.random() * 5) + 'px';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
 
 function bumpCheck(habitId) {
   const key = todayKey();
   const day = checkins[key] || (checkins[key] = {});
+  const wasDone = isDone(habitId);
   day[habitId] = Math.min(goalFor(habitId), (day[habitId] || 0) + 1);
   save(); render(); playTapSound();
+  if (!wasDone && isDone(habitId)) {
+    const item = habitList.querySelector("[data-habit-id=\"" + habitId + "\"]");
+    const btn = item ? item.querySelector(".check-btn") : null;
+    if (btn) { btn.classList.add("pop"); btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true }); }
+    if (btn) { const r = btn.getBoundingClientRect(); burstConfetti(r.left + r.width/2, r.top + r.height/2); }
+  }
+  const summaryEl = document.querySelector(".habit-summary");
+  if (summaryEl) { summaryEl.classList.add("celebrate"); summaryEl.addEventListener("animationend", () => summaryEl.classList.remove("celebrate"), { once: true }); }
 }
 function decreaseCheck(habitId) {
   const key = todayKey();
@@ -324,7 +632,7 @@ function deleteHabit(habitId) {
 function addTask(value) {
   const trimmed = value.trim();
   if (!trimmed) return;
-  tasks.push({ id: makeId(), text: trimmed });
+  tasks.push({ id: makeId(), text: trimmed, createdAt: todayKey() });
   save(); renderTasks(); taskInput.value = ''; taskInput.focus();
 }
 function deleteTask(taskId) {
@@ -338,15 +646,27 @@ function deleteTask(taskId) {
 function toggleTask(taskId) {
   const key = todayKey();
   const day = taskChecks[key] || (taskChecks[key] = {});
+  const wasDone = taskDone(taskId);
   if (day[taskId]) delete day[taskId];
   else day[taskId] = true;
   if (Object.keys(day).length === 0) delete taskChecks[key];
   save(); renderTasks(); playTapSound();
+  if (!wasDone && taskDone(taskId)) {
+    const item = taskList.querySelector("[data-task-id=\"" + taskId + "\"]");
+    const btn = item ? item.querySelector(".task-check") : null;
+    if (btn) { btn.classList.add("pop"); btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true }); }
+    if (btn) { const r = btn.getBoundingClientRect(); burstConfetti(r.left + r.width/2, r.top + r.height/2); }
+  }
 }
 function clearAllData() {
-  localStorage.removeItem(STORAGE_KEY);
+  if (StorageManager._fileHandle) {
+    StorageManager._fileHandle.remove?.(); // 在 Service Workers 中移除
+    StorageManager._fileHandle = null;
+    StorageManager._removeStoredFileHandle();
+  }
   habits = []; checkins = {}; tasks = []; taskChecks = {}; diaries = {};
   save(); closeConfirm(); render(); renderTasks(); renderDiary(); showFeedback('已清空全部数据');
+  updateFileStatus('');
 }
 function openConfirm() { confirmMask.hidden = false; cancelClear.focus(); }
 function closeConfirm() { confirmMask.hidden = true; clearBtn.focus(); }
@@ -451,14 +771,16 @@ function createHabitItem(habit) {
   deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>';
   deleteBtn.addEventListener('click', () => deleteHabit(habit.id));
 
+  item.setAttribute("data-habit-id", habit.id);
   item.append(avatar, info, counter, deleteBtn);
   return item;
 }
 
 function createTaskItem(task) {
   const done = taskDone(task.id);
+  const isCarriedOver = task.createdAt < todayKey();
   const item = document.createElement('li');
-  item.className = 'task-item' + (done ? ' done' : '');
+  item.className = 'task-item' + (done ? ' done' : '') + (isCarriedOver ? ' carried-over' : '');
 
   const checkBtn = document.createElement('button');
   checkBtn.type = 'button';
@@ -472,8 +794,16 @@ function createTaskItem(task) {
   checkBtn.addEventListener('click', () => toggleTask(task.id));
 
   const name = document.createElement('span');
-  name.className = 'task-name';
-  name.textContent = task.text;
+  const textSpan = document.createElement('span');
+  textSpan.className = 'task-name';
+  textSpan.textContent = task.text;
+  if (isCarriedOver) {
+    const carryTag = document.createElement('span');
+    carryTag.className = 'carry-tag';
+    carryTag.textContent = '上日遗留';
+    name.appendChild(carryTag);
+  }
+  name.appendChild(textSpan);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
@@ -483,6 +813,7 @@ function createTaskItem(task) {
   deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>';
   deleteBtn.addEventListener('click', () => deleteTask(task.id));
 
+  item.setAttribute("data-task-id", task.id);
   item.append(checkBtn, name, deleteBtn);
   return item;
 }
@@ -560,7 +891,8 @@ function renderTasks() {
   taskList.replaceChildren(...tasks.map(createTaskItem));
   const doneCount = tasks.filter(t => taskDone(t.id)).length;
   taskDoneCountEl.textContent = doneCount;
-  taskTotalCountEl.textContent = tasks.length;
+  const todayTasks = tasks.filter(t => t.createdAt === todayKey());
+  taskTotalCountEl.textContent = todayTasks.length || tasks.length;
   taskEmptyState.classList.toggle('hidden', tasks.length > 0);
 }
 function renderDiary() {
@@ -637,7 +969,7 @@ function switchView(view) {
 }
 
 // ============================================================
-// 📱 滑动切换
+// 滑动切换
 // ============================================================
 
 // 主页面滑动切换 Tab
@@ -740,10 +1072,14 @@ function setupCalendarSwipe() {
 }
 
 // ============================================================
-// 🎨 配色管理系统
+// 配色管理系统
 // ============================================================
 function getStoredColors() {
   try {
+    if (StorageManager._fileHandle) {
+      // 从文件存储
+      return null; // 实际会在 loadFromFile 中处理
+    }
     const raw = localStorage.getItem(COLOR_CONFIG_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -753,7 +1089,16 @@ function getStoredColors() {
   return null;
 }
 function storeColors(colors) {
-  try { localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(colors)); } catch (e) {}
+  try {
+    if (StorageManager._fileHandle) {
+      // 保存到文件（异步）
+      const data = StorageManager._exportData();
+      data.colors = colors;
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+    } else {
+      localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(colors));
+    }
+  } catch (e) {}
 }
 function getCurrentModeColors() {
   const stored = getStoredColors();
@@ -821,16 +1166,27 @@ function saveCurrentColors() {
 }
 function resetAllColors() {
   if (!confirm('确定要重置全部配色吗？这将删除所有自定义颜色（亮色和暗色）。')) return;
-  localStorage.removeItem(COLOR_CONFIG_KEY);
+  if (StorageManager._fileHandle) {
+    // 清空内存中的配色
+    const colors = getStoredColors() || {};
+    delete colors['light'];
+    delete colors['dark'];
+    storeColors(colors);
+  } else {
+    localStorage.removeItem(COLOR_CONFIG_KEY);
+  }
   loadAndApplyColors();
   showFeedback('已重置全部配色');
 }
 
 // ============================================================
-// 🎨 色块管理
+// 色块管理
 // ============================================================
 function getStoredSwatches() {
   try {
+    if (StorageManager._fileHandle) {
+      return null; // 实际会在 loadFromFile 中处理
+    }
     const raw = localStorage.getItem(SWATCHES_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -840,7 +1196,15 @@ function getStoredSwatches() {
   return {};
 }
 function storeSwatches(swatches) {
-  try { localStorage.setItem(SWATCHES_KEY, JSON.stringify(swatches)); } catch (e) {}
+  try {
+    if (StorageManager._fileHandle) {
+      const data = StorageManager._exportData();
+      data.swatches = swatches;
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+    } else {
+      localStorage.setItem(SWATCHES_KEY, JSON.stringify(swatches));
+    }
+  } catch (e) {}
 }
 
 function getSwatchesForVar(varName) {
@@ -1013,7 +1377,7 @@ function resetSwatchesHandler(e) {
 }
 
 // ============================================================
-// 🎨 自研取色器
+// 自研取色器
 // ============================================================
 function parseHex(hex) {
   if (typeof hex !== 'string') return null;
@@ -1222,10 +1586,13 @@ function setupColorPicker() {
 }
 
 // ============================================================
-// 📁 预设管理
+// 预设管理
 // ============================================================
 function getPresets() {
   try {
+    if (StorageManager._fileHandle) {
+      return null; // 实际会在 loadFromFile 中处理
+    }
     const raw = localStorage.getItem(PRESETS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -1235,7 +1602,15 @@ function getPresets() {
   return {};
 }
 function savePresets(presets) {
-  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch (e) {}
+  try {
+    if (StorageManager._fileHandle) {
+      const data = StorageManager._exportData();
+      data.presets = presets;
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+    } else {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+    }
+  } catch (e) {}
 }
 
 function renderPresetList() {
@@ -1409,7 +1784,13 @@ function applyTheme(theme) {
 }
 function loadTheme() {
   let theme = null;
-  try { theme = localStorage.getItem(THEME_KEY); } catch (e) {}
+  try {
+    if (StorageManager._fileHandle) {
+      theme = null; // 从文件加载时主题会在 loadFromFile 中处理
+    } else {
+      theme = localStorage.getItem(THEME_KEY);
+    }
+  } catch (e) {}
   if (theme !== 'light' && theme !== 'dark') {
     theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
@@ -1417,7 +1798,9 @@ function loadTheme() {
 }
 
 // ---------- 初始化 ----------
-function init() {
+async function init() {
+  // 先初始化 StorageManager
+  await StorageManager.init();
   loadTheme();
   load();
   render();
@@ -1468,14 +1851,62 @@ diaryText.addEventListener('input', () => {
 });
 themeBtn.addEventListener('click', () => {
   const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  try {
+    if (StorageManager._fileHandle) {
+      // 主题保存在文件数据中
+      const data = StorageManager._exportData();
+      data.theme = next;
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+    } else {
+      localStorage.setItem(THEME_KEY, next);
+    }
+  } catch (e) {}
   applyTheme(next);
+});
+openFileBtn.addEventListener('click', () => {
+  closeFileMenu();
+  StorageManager.openFile();
+});
+saveFileBtn.addEventListener('click', () => {
+  closeFileMenu();
+  StorageManager.saveFile();
+});
+exportFileBtn.addEventListener('click', () => {
+  closeFileMenu();
+  StorageManager.exportFile();
+});
+importFileBtn.addEventListener('click', () => {
+  closeFileMenu();
+  StorageManager.importFile();
+});
+fileMenuBtn.addEventListener('click', () => {
+  if (fileMenu.hidden) {
+    fileMenu.hidden = false;
+    fileMenuBtn.setAttribute('aria-expanded', 'true');
+  } else {
+    closeFileMenu();
+  }
+});
+function closeFileMenu() {
+  fileMenu.hidden = true;
+  fileMenuBtn.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.file-btn') && !e.target.closest('.file-menu')) {
+    closeFileMenu();
+  }
 });
 if (window.matchMedia) {
   const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
   const onSystemChange = (e) => {
     let stored = null;
-    try { stored = localStorage.getItem(THEME_KEY); } catch (err) {}
+    try {
+      if (StorageManager._fileHandle) {
+        stored = null; // 从文件加载
+      } else {
+        stored = localStorage.getItem(THEME_KEY);
+      }
+    } catch (err) {}
     if (!stored) applyTheme(e.matches ? 'dark' : 'light');
   };
   if (typeof darkMedia.addEventListener === 'function') darkMedia.addEventListener('change', onSystemChange);
