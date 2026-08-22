@@ -11,6 +11,9 @@ const StorageManager = {
   _fileHandle: null,
   _currentFileName: '习惯打卡数据.json',
   _saveTimer: null,
+  _watchTimer: null,
+  _lastFileContent: null,
+  _watchEnabled: false,
 
   async init() {
     // 检查是否支持 File System Access API
@@ -20,6 +23,49 @@ const StorageManager = {
     }
     // 文件句柄无法跨会话持久化，用户每次需重新选择
     return false;
+  },
+
+  // 启动文件监听（自动刷新）
+  startWatching() {
+    if (!this._fileHandle || this._watchEnabled) return;
+    this._watchEnabled = true;
+    this._checkFileChanges();
+    // 每 2 秒检查一次
+    this._watchTimer = setInterval(() => this._checkFileChanges(), 2000);
+  },
+
+  // 停止文件监听
+  stopWatching() {
+    this._watchEnabled = false;
+    if (this._watchTimer) {
+      clearInterval(this._watchTimer);
+      this._watchTimer = null;
+    }
+  },
+
+  // 检查文件变化
+  async _checkFileChanges() {
+    if (!this._fileHandle || !this._watchEnabled) return;
+    try {
+      const file = await this._fileHandle.getFile();
+      const text = await file.text();
+      if (text !== this._lastFileContent) {
+        this._lastFileContent = text;
+        this._showRefreshPrompt(text);
+      }
+    } catch (e) {
+      console.log('检查文件变化失败', e);
+    }
+  },
+
+  // 显示刷新提示
+  _showRefreshPrompt(newContent) {
+    if (confirm('文件已更新，是否刷新当前数据？')) {
+      this._lastFileContent = newContent;
+      this.loadFromFile().then(() => {
+        showFeedback('已刷新');
+      });
+    }
   },
 
   _getStoredFileHandle() {
@@ -59,6 +105,8 @@ const StorageManager = {
       this._storeFileHandle(handle);
       await this.loadFromFile();
       this._currentFileName = handle.name;
+      // 启动自动刷新
+      this.startWatching();
       showFeedback(`已打开: ${handle.name}`);
       updateFileStatus(handle.name);
       return true;
@@ -157,6 +205,7 @@ const StorageManager = {
       this._fileHandle = handle;
       this._storeFileHandle(handle);
       this._currentFileName = handle.name;
+      this.startWatching();
       save();
       render();
       renderTasks();
@@ -653,6 +702,7 @@ function toggleTask(taskId) {
 }
 function clearAllData() {
   if (StorageManager._fileHandle) {
+    StorageManager.stopWatching();
     StorageManager._fileHandle.remove?.(); // 在 Service Workers 中移除
     StorageManager._fileHandle = null;
     StorageManager._removeStoredFileHandle();
@@ -1814,6 +1864,8 @@ async function init() {
   requestAnimationFrame(updateTabBackground);
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateTabBackground, 100); });
+  // 页面关闭时清理监听
+  window.addEventListener('beforeunload', () => { StorageManager.stopWatching(); });
 }
 
 // ---------- 事件绑定 ----------
