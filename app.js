@@ -3,7 +3,7 @@ const THEME_KEY = 'habit-tracker-theme';
 const COLOR_CONFIG_KEY = 'habit-tracker-colors-v2';
 const PRESETS_KEY = 'habit-tracker-presets';
 const SWATCHES_KEY = 'habit-tracker-swatches';
-const APP_VERSION = '1.2.0'; // 版本号：大版本.小版本.修复版本
+const APP_VERSION = '1.3.0'; // 版本号：大版本.小版本.修复版本
 
 // ============================================================
 // 本地文件存储管理器
@@ -404,7 +404,7 @@ const DEFAULT_SWATCHES = {
   '--slider-bg': ['#FFFFFF', '#FDFDFD', '#FFF7EF', '#F5F5F5', '#FCE4EC', '#E3F2FD', '#E8F5E9', '#FFF3E0'],
 };
 
-// ---------- 内置预设配色（每个预设包含一组颜色） ----------
+// ---------- 内置预设配色（只保留一个预设，只配置亮色模式） ----------
 const BUILTIN_PRESETS = {
   '莓语轻风': {
     '--bg': '#F8F4E8',
@@ -415,26 +415,6 @@ const BUILTIN_PRESETS = {
     '--accent': '#FFD3D4',
     '--add-bg': '#FFD3D4',
     '--slider-bg': '#F8F4E8',
-  },
-  '薄荷微甜': {
-    '--bg': '#E8F5E9',
-    '--surface': '#F1F8E9',
-    '--line': '#C8E6C9',
-    '--text': '#2E7D32',
-    '--muted': '#689F38',
-    '--accent': '#81C784',
-    '--add-bg': '#A5D6A7',
-    '--slider-bg': '#E8F5E9',
-  },
-  '暮光薰衣草': {
-    '--bg': '#F3E5F5',
-    '--surface': '#FAF0FC',
-    '--line': '#E1BEE7',
-    '--text': '#6A1B9A',
-    '--muted': '#9C27B0',
-    '--accent': '#CE93D8',
-    '--add-bg': '#BA68C8',
-    '--slider-bg': '#F3E5F5',
   },
 };
 
@@ -1704,10 +1684,9 @@ function loadPreset(name) {
   const preset = presets[name];
   if (!preset) return;
   const stored = getStoredColors() || {};
-  // 新格式：直接是颜色对象
+  // 新格式：直接是颜色对象，只应用到亮色模式
   if (preset['--bg']) {
     stored.light = { ...stored.light, ...preset };
-    stored.dark = { ...stored.dark, ...preset };
   }
   // 旧格式：包含 light/dark
   else if (preset.light) {
