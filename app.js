@@ -364,7 +364,8 @@ let pickerDragging = false;
 // ---------- 滑动状态 ----------
 let touchStartX = 0;
 let touchStartY = 0;
-let isSwiping = false;
+let touchStartTime = 0;
+let isTouchSwiping = false;
 
 // ---------- 默认配色 ----------
 const DEFAULT_COLORS = {
@@ -983,113 +984,87 @@ function switchView(view) {
 // 滑动切换
 // ============================================================
 
-// 主页面滑动切换 Tab
-function setupMainSwipe() {
-  const container = app;
-  let startX = 0;
-  let startY = 0;
-  let isSwiping = false;
-
-  container.addEventListener('touchstart', (e) => {
-    // 如果日历弹出层打开，不处理主页面滑动
-    if (!calendarPopover.classList.contains('is-open')) {
-      const touch = e.touches[0];
-      startX = touch.clientX;
-      startY = touch.clientY;
-      isSwiping = false;
-    }
+// 统一处理滑动：监听 window，根据当前活动面板决定行为
+function setupSwipe() {
+  // 全局触摸事件监听
+  document.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+    isTouchSwiping = false;
   }, { passive: true });
 
-  container.addEventListener('touchmove', (e) => {
-    if (!startX || calendarPopover.classList.contains('is-open')) return;
+  document.addEventListener('touchmove', (e) => {
+    if (isTouchSwiping) return;
     const touch = e.touches[0];
-    const diffX = touch.clientX - startX;
-    const diffY = touch.clientY - startY;
-    if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
-      isSwiping = true;
+    const diffX = Math.abs(touch.clientX - touchStartX);
+    const diffY = Math.abs(touch.clientY - touchStartY);
+
+    // 水平滑动超过阈值
+    if (diffX > 15 && diffX > diffY * 1.5) {
+      isTouchSwiping = true;
       e.preventDefault();
     }
   }, { passive: false });
 
-  container.addEventListener('touchend', (e) => {
-    if (!startX || !isSwiping || calendarPopover.classList.contains('is-open')) {
-      startX = 0; startY = 0; isSwiping = false;
+  document.addEventListener('touchend', (e) => {
+    if (!isTouchSwiping) {
+      touchStartX = 0;
       return;
     }
+
     const touch = e.changedTouches[0];
-    const diffX = touch.clientX - startX;
-    const diffY = touch.clientY - startY;
-    startX = 0; startY = 0; isSwiping = false;
+    const diffX = touch.clientX - touchStartX;
+    const elapsed = Date.now() - touchStartTime;
 
-    if (Math.abs(diffX) < 30) return;
-    if (Math.abs(diffX) < Math.abs(diffY) * 1.2) return;
+    // 重置状态
+    touchStartX = 0;
+    isTouchSwiping = false;
 
-    const views = ['habits', 'tasks', 'diary'];
-    const currentIdx = views.indexOf(activeView);
-    if (diffX < 0 && currentIdx < views.length - 1) {
-      // 左滑 → 下一个
-      switchView(views[currentIdx + 1]);
-    } else if (diffX > 0 && currentIdx > 0) {
-      // 右滑 → 上一个
-      switchView(views[currentIdx - 1]);
-    }
-  }, { passive: true });
-}
+    // 最小滑动距离和最大时间
+    if (Math.abs(diffX) < 50 || elapsed > 500) return;
 
-// 日历滑动切换日期（在日记面板上滑动，不是在日历弹出层上）
-function setupCalendarSwipe() {
-  const container = diaryPanel;
-  let startX = 0;
-  let startY = 0;
-  let isSwiping = false;
+    // 日历弹出层打开时，不处理任何滑动
+    if (calendarPopover.classList.contains('is-open')) return;
 
-  container.addEventListener('touchstart', (e) => {
-    // 只有日记面板可见且日历未打开时才处理
-    if (diaryPanel.hidden || calendarPopover.classList.contains('is-open')) return;
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    isSwiping = false;
-  }, { passive: true });
+    // 当前活动面板
+    const isDiaryActive = diaryPanel && !diaryPanel.hidden;
+    const isTasksActive = tasksPanel && !tasksPanel.hidden;
+    const isHabitsActive = habitsPanel && !habitsPanel.hidden;
 
-  container.addEventListener('touchmove', (e) => {
-    if (!startX || diaryPanel.hidden || calendarPopover.classList.contains('is-open')) return;
-    const touch = e.touches[0];
-    const diffX = touch.clientX - startX;
-    const diffY = touch.clientY - startY;
-    if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
-      isSwiping = true;
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  container.addEventListener('touchend', (e) => {
-    if (!startX || !isSwiping || diaryPanel.hidden || calendarPopover.classList.contains('is-open')) {
-      startX = 0; startY = 0; isSwiping = false;
+    // 日记面板：水平滑动切换日期
+    if (isDiaryActive) {
+      const currentKey = diaryDate.value || todayKey();
+      const currentDate = dateFromKey(currentKey);
+      let newDate;
+      if (diffX < 0) {
+        // 左滑 → 明天
+        newDate = addDays(currentDate, 1);
+      } else {
+        // 右滑 → 昨天
+        newDate = addDays(currentDate, -1);
+      }
+      const newKey = toKey(newDate);
+      diaryDate.value = newKey;
+      calendarViewDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+      renderDiary();
+      renderCalendar();
       return;
     }
-    const touch = e.changedTouches[0];
-    const diffX = touch.clientX - startX;
-    startX = 0; startY = 0; isSwiping = false;
 
-    if (Math.abs(diffX) < 30) return;
-
-    const currentKey = diaryDate.value || todayKey();
-    const currentDate = dateFromKey(currentKey);
-    let newDate;
-    if (diffX < 0) {
-      // 左滑 → 明天
-      newDate = addDays(currentDate, 1);
-    } else {
-      // 右滑 → 昨天
-      newDate = addDays(currentDate, -1);
+    // 其他面板：水平滑动切换视图
+    if (isTasksActive || isHabitsActive) {
+      const views = ['habits', 'tasks', 'diary'];
+      const currentIdx = views.indexOf(activeView);
+      if (diffX < 0 && currentIdx < views.length - 1) {
+        // 左滑 → 下一个
+        switchView(views[currentIdx + 1]);
+      } else if (diffX > 0 && currentIdx > 0) {
+        // 右滑 → 上一个
+        switchView(views[currentIdx - 1]);
+      }
     }
-    const newKey = toKey(newDate);
-    diaryDate.value = newKey;
-    calendarViewDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
-    renderDiary();
-    // 刷新日历高亮
-    renderCalendar();
   }, { passive: true });
 }
 
@@ -1838,8 +1813,7 @@ async function init() {
   setupColorInputSync();
   setupColorPicker();
   setupResetSwatches(); // 初始化一次委托
-  setupMainSwipe();
-  setupCalendarSwipe();
+  setupSwipe();
   requestAnimationFrame(updateTabBackground);
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateTabBackground, 100); });
