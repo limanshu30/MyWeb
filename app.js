@@ -29,7 +29,8 @@ const StorageManager = {
       const stored = localStorage.getItem('habit-tracker-current-file');
       if (stored) {
         this._currentFileName = stored;
-        updateFileStatus(this._currentFileName);
+        // 延迟到 DOM 就绪后再更新状态显示（此时 DOM 引用可能还未就绪）
+        setTimeout(() => updateFileStatus(this._currentFileName), 0);
       }
     } catch (e) {}
     return false;
@@ -114,6 +115,8 @@ const StorageManager = {
       this._fileHandle = handle;
       this._currentFileName = handle.name;
       localStorage.setItem('habit-tracker-current-file', handle.name);
+      // 立即记录当前文件内容，避免首次 Watch 触发"文件已更新"误判
+      this._lastFileContent = text;
       // 启动自动监听
       this.startWatching();
       updateFileStatus(handle.name);
@@ -916,7 +919,7 @@ function renderDiary() {
   const entry = diaries[key];
   diaryDateLabel.textContent = formatDiaryDate(key);
   diaryText.value = entry ? entry.text : '';
-  diaryList.replaceChildren(...Object.keys(diaries).sort((a, b) => a < b ? -1 : 1).map(createDiaryEntry));
+  diaryList.replaceChildren(...Object.keys(diaries).sort((a, b) => a < b ? 1 : -1).map(createDiaryEntry));
   diaryEmptyState.classList.toggle('hidden', Object.keys(diaries).length > 0);
   if (calendarPopover.classList.contains('is-open')) renderCalendar();
 }
@@ -1158,8 +1161,9 @@ function saveCurrentColors() {
 function resetAllColors() {
   if (!confirm('确定要重置全部配色吗？这将删除所有自定义颜色（亮色和暗色）。')) return;
   if (StorageManager._fileHandle) {
+    // 清除内存缓存
     StorageManager._colorsCache = null;
-    // 尝试写入文件
+    // 直接写入空配色到文件（避免再次调用 storeColors 触发额外异步写入）
     const data = StorageManager._exportData();
     data.colors = {};
     StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(e => console.error('保存配色失败', e));
