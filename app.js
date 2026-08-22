@@ -22,8 +22,9 @@ const StorageManager = {
     try {
       const handle = await this._getStoredFileHandle();
       if (handle) {
+        // 验证 handle 是否有效
         try {
-          this._fileHandle = handle;
+          this._fileHandle = await handle.requestHandle();
           await this.loadFromFile();
           return true;
         } catch (e) {
@@ -1218,7 +1219,7 @@ function storeSwatches(swatches) {
 
 function getSwatchesForVar(varName) {
   const stored = getStoredSwatches();
-  if (stored[varName] && stored[varName].length > 0) {
+  if (stored && varName && stored[varName] && Array.isArray(stored[varName]) && stored[varName].length > 0) {
     return [...stored[varName]]; // 返回副本
   }
   return [...(DEFAULT_SWATCHES[varName] || ['#FFFFFF', '#E0E0E0', '#BDBDBD'])];
