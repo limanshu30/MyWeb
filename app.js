@@ -3,6 +3,7 @@ const THEME_KEY = 'habit-tracker-theme';
 const COLOR_CONFIG_KEY = 'habit-tracker-colors-v2';
 const PRESETS_KEY = 'habit-tracker-presets';
 const SWATCHES_KEY = 'habit-tracker-swatches';
+const APP_VERSION = '1.1.0'; // 版本号：大版本.小版本.修复版本
 
 // ============================================================
 // 本地文件存储管理器
@@ -1817,6 +1818,9 @@ async function init() {
   requestAnimationFrame(updateTabBackground);
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(updateTabBackground, 100); });
+  // 显示版本号
+  const versionEl = document.getElementById('versionInfo');
+  if (versionEl) versionEl.textContent = `v${APP_VERSION}`;
   // 页面关闭时清理监听
   window.addEventListener('beforeunload', () => { StorageManager.stopWatching(); });
 }
