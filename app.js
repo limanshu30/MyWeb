@@ -18,24 +18,7 @@ const StorageManager = {
       console.log('File System Access API 不可用，使用 localStorage');
       return false;
     }
-    // 尝试从上次打开的文件恢复
-    try {
-      const handle = await this._getStoredFileHandle();
-      if (handle) {
-        // 验证 handle 是否有效
-        try {
-          this._fileHandle = await handle.requestHandle();
-          await this.loadFromFile();
-          return true;
-        } catch (e) {
-          console.log('文件句柄已失效，清除存储', e);
-          this._fileHandle = null;
-          this._removeStoredFileHandle();
-        }
-      }
-    } catch (e) {
-      console.log('恢复文件失败，使用 localStorage', e);
-    }
+    // 文件句柄无法跨会话持久化，用户每次需重新选择
     return false;
   },
 
