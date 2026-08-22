@@ -22,9 +22,15 @@ const StorageManager = {
     try {
       const handle = await this._getStoredFileHandle();
       if (handle) {
-        this._fileHandle = handle;
-        await this.loadFromFile();
-        return true;
+        try {
+          this._fileHandle = handle;
+          await this.loadFromFile();
+          return true;
+        } catch (e) {
+          console.log('文件句柄已失效，清除存储', e);
+          this._fileHandle = null;
+          this._removeStoredFileHandle();
+        }
       }
     } catch (e) {
       console.log('恢复文件失败，使用 localStorage', e);
@@ -217,7 +223,10 @@ const StorageManager = {
       if (data.theme) { applyTheme(data.theme); }
     } catch (e) {
       console.error('加载文件失败', e);
-      showFeedback('加载文件失败');
+      showFeedback('加载文件失败，请重新打开文件');
+      // 清除失效的文件句柄
+      this._fileHandle = null;
+      this._removeStoredFileHandle();
     }
   },
 
@@ -1077,8 +1086,8 @@ function setupCalendarSwipe() {
 function getStoredColors() {
   try {
     if (StorageManager._fileHandle) {
-      // 从文件存储
-      return null; // 实际会在 loadFromFile 中处理
+      // 文件模式下，尝试从文件加载（异步，这里返回缓存）
+      return null;
     }
     const raw = localStorage.getItem(COLOR_CONFIG_KEY);
     if (raw) {
@@ -1591,7 +1600,8 @@ function setupColorPicker() {
 function getPresets() {
   try {
     if (StorageManager._fileHandle) {
-      return null; // 实际会在 loadFromFile 中处理
+      // 文件模式下从文件加载，返回空对象让默认预设显示
+      return null;
     }
     const raw = localStorage.getItem(PRESETS_KEY);
     if (raw) {
@@ -1602,6 +1612,7 @@ function getPresets() {
   return {};
 }
 function savePresets(presets) {
+  if (!presets || typeof presets !== 'object') return;
   try {
     if (StorageManager._fileHandle) {
       const data = StorageManager._exportData();
@@ -1615,6 +1626,10 @@ function savePresets(presets) {
 
 function renderPresetList() {
   const presets = getPresets();
+  if (!presets) {
+    presetList.innerHTML = '<li class="preset-empty">文件模式下预设存储在文件中</li>';
+    return;
+  }
   const names = Object.keys(presets);
   if (names.length === 0) {
     presetList.innerHTML = '<li class="preset-empty">暂无预设，保存当前配色试试</li>';
