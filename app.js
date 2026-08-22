@@ -1028,13 +1028,8 @@ function setupSwipe() {
     // 日历弹出层打开时，不处理任何滑动
     if (calendarPopover.classList.contains('is-open')) return;
 
-    // 当前活动面板
-    const isDiaryActive = diaryPanel && !diaryPanel.hidden;
-    const isTasksActive = tasksPanel && !tasksPanel.hidden;
-    const isHabitsActive = habitsPanel && !habitsPanel.hidden;
-
-    // 日记面板：水平滑动切换日期
-    if (isDiaryActive) {
+    // 日历弹出层打开时，滑动切换日期
+    if (calendarPopover.classList.contains('is-open')) {
       const currentKey = diaryDate.value || todayKey();
       const currentDate = dateFromKey(currentKey);
       let newDate;
@@ -1053,17 +1048,15 @@ function setupSwipe() {
       return;
     }
 
-    // 其他面板：水平滑动切换视图
-    if (isTasksActive || isHabitsActive) {
-      const views = ['habits', 'tasks', 'diary'];
-      const currentIdx = views.indexOf(activeView);
-      if (diffX < 0 && currentIdx < views.length - 1) {
-        // 左滑 → 下一个
-        switchView(views[currentIdx + 1]);
-      } else if (diffX > 0 && currentIdx > 0) {
-        // 右滑 → 上一个
-        switchView(views[currentIdx - 1]);
-      }
+    // 其他情况：切换视图
+    const views = ['habits', 'tasks', 'diary'];
+    const currentIdx = views.indexOf(activeView);
+    if (diffX < 0 && currentIdx < views.length - 1) {
+      // 左滑 → 下一个
+      switchView(views[currentIdx + 1]);
+    } else if (diffX > 0 && currentIdx > 0) {
+      // 右滑 → 上一个
+      switchView(views[currentIdx - 1]);
     }
   }, { passive: true });
 }
