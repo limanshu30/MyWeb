@@ -101,14 +101,34 @@ const StorageManager = {
         }],
         multiple: false
       });
-      this._fileHandle = handle;
-      this._storeFileHandle(handle);
-      await this.loadFromFile();
+      const file = await handle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      // 加载数据
+      habits = normalizeHabits(data?.habits);
+      checkins = normalizeCheckins(data?.checkins);
+      tasks = normalizeTasks(data?.tasks);
+      taskChecks = normalizeTaskChecks(data?.taskChecks);
+      diaries = normalizeDiaries(data?.diaries);
+      // 恢复配色和主题
+      if (data.colors) { storeColors(data.colors); }
+      if (data.swatches) { storeSwatches(data.swatches); }
+      if (data.presets) { savePresets(data.presets); }
+      if (data.theme) { applyTheme(data.theme); }
+      // 保存到 localStorage 确保刷新后不丢失
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, checkins, tasks, taskChecks, diaries }));
+      if (data.colors) localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(data.colors));
+      if (data.swatches) localStorage.setItem(SWATCHES_KEY, JSON.stringify(data.swatches));
+      if (data.presets) localStorage.setItem(PRESETS_KEY, JSON.stringify(data.presets));
       this._currentFileName = handle.name;
-      // 启动自动刷新
-      this.startWatching();
-      showFeedback(`已打开: ${handle.name}`);
       updateFileStatus(handle.name);
+      showFeedback(`已加载: ${handle.name}`);
+      render();
+      renderTasks();
+      renderDiary();
+      renderPresetList();
+      loadAndApplyColors();
+      initAllSwatches();
       return true;
     } catch (e) {
       if (e.name !== 'AbortError') {
@@ -171,58 +191,7 @@ const StorageManager = {
     a.download = '习惯打卡数据.json';
     a.click();
     URL.revokeObjectURL(url);
-  showFeedback('已导出');
-  },
-
-  async importFile() {
-    if (!window.showOpenFilePicker) {
-      showFeedback('浏览器不支持文件选择');
-      return false;
-    }
-    try {
-      const [handle] = await window.showOpenFilePicker({
-        types: [{
-          description: 'JSON 文件',
-          accept: { 'application/json': ['.json'] }
-        }],
-        multiple: false
-      });
-      const file = await handle.getFile();
-      const text = await file.text();
-      const data = JSON.parse(text);
-      // 导入数据
-      habits = normalizeHabits(data?.habits);
-      checkins = normalizeCheckins(data?.checkins);
-      tasks = normalizeTasks(data?.tasks);
-      taskChecks = normalizeTaskChecks(data?.taskChecks);
-      diaries = normalizeDiaries(data?.diaries);
-      // 恢复配色和主题
-      if (data.colors) { storeColors(data.colors); }
-      if (data.swatches) { storeSwatches(data.swatches); }
-      if (data.presets) { savePresets(data.presets); }
-      if (data.theme) { applyTheme(data.theme); }
-      // 设置文件句柄
-      this._fileHandle = handle;
-      this._storeFileHandle(handle);
-      this._currentFileName = handle.name;
-      this.startWatching();
-      save();
-      render();
-      renderTasks();
-      renderDiary();
-      renderPresetList();
-      loadAndApplyColors();
-      initAllSwatches();
-      showFeedback(`已导入: ${handle.name}`);
-      updateFileStatus(handle.name);
-      return true;
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        console.error('导入文件失败', e);
-        showFeedback('导入失败');
-      }
-      return false;
-    }
+    showFeedback('已导出');
   },
 
   _exportData() {
@@ -318,7 +287,6 @@ const themeBtn = document.getElementById('themeBtn');
 const openFileBtn = document.getElementById('openFileBtn');
 const saveFileBtn = document.getElementById('saveFileBtn');
 const exportFileBtn = document.getElementById('exportFileBtn');
-const importFileBtn = document.getElementById('importFileBtn');
 const fileMenuBtn = document.getElementById('fileMenuBtn');
 const fileMenu = document.getElementById('fileMenu');
 
@@ -1925,10 +1893,6 @@ saveFileBtn.addEventListener('click', () => {
 exportFileBtn.addEventListener('click', () => {
   closeFileMenu();
   StorageManager.exportFile();
-});
-importFileBtn.addEventListener('click', () => {
-  closeFileMenu();
-  StorageManager.importFile();
 });
 fileMenuBtn.addEventListener('click', () => {
   if (fileMenu.hidden) {
