@@ -21,18 +21,14 @@ const StorageManager = {
       console.log('File System Access API 不可用，使用 localStorage');
       return false;
     }
-    // 尝试恢复上次打开的文件（句柄可能失效，但信息有用）
+    // 从 localStorage 恢复文件名显示（句柄无法持久化）
     try {
-      const storedHandle = localStorage.getItem('habit-tracker-file-handle');
-      if (storedHandle) {
-        // 句柄无法跨会话恢复，但我们可以记住文件名
-        const parsed = JSON.parse(storedHandle);
-        this._currentFileName = parsed.name || '习惯打卡数据.json';
+      const stored = localStorage.getItem('habit-tracker-current-file');
+      if (stored) {
+        this._currentFileName = stored;
         updateFileStatus(this._currentFileName);
       }
-    } catch (e) {
-      console.log('恢复文件状态失败', e);
-    }
+    } catch (e) {}
     return false;
   },
 
@@ -79,26 +75,6 @@ const StorageManager = {
     }
   },
 
-  _getStoredFileHandle() {
-    try {
-      const raw = localStorage.getItem('habit-tracker-file-handle');
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch { return null; }
-  },
-
-  _storeFileHandle(handle) {
-    try {
-      localStorage.setItem('habit-tracker-file-handle', JSON.stringify(handle));
-    } catch {}
-  },
-
-  _removeStoredFileHandle() {
-    try {
-      localStorage.removeItem('habit-tracker-file-handle');
-    } catch {}
-  },
-
   async openFile() {
     if (!window.showOpenFilePicker) {
       showFeedback('浏览器不支持文件选择，使用 localStorage');
@@ -131,10 +107,10 @@ const StorageManager = {
       if (data.colors) localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(data.colors));
       if (data.swatches) localStorage.setItem(SWATCHES_KEY, JSON.stringify(data.swatches));
       if (data.presets) localStorage.setItem(PRESETS_KEY, JSON.stringify(data.presets));
-      // 保存文件句柄，支持后续保存到原文件
+      // 保存文件句柄（仅当前会话有效）和文件名
       this._fileHandle = handle;
-      this._storeFileHandle(handle);
       this._currentFileName = handle.name;
+      localStorage.setItem('habit-tracker-current-file', handle.name);
       // 启动自动监听
       this.startWatching();
       updateFileStatus(handle.name);
@@ -187,7 +163,9 @@ const StorageManager = {
         }]
       });
       this._fileHandle = handle;
-      this._storeFileHandle(handle);
+      this._currentFileName = handle.name;
+      localStorage.setItem('habit-tracker-current-file', handle.name);
+      updateFileStatus(handle.name);
       await this.saveFile();
       return true;
     } catch (e) {
@@ -244,7 +222,9 @@ const StorageManager = {
       showFeedback('加载文件失败，请重新打开文件');
       // 清除失效的文件句柄
       this._fileHandle = null;
-      this._removeStoredFileHandle();
+      this._currentFileName = '';
+      localStorage.removeItem('habit-tracker-current-file');
+      updateFileStatus('');
     }
   },
 
@@ -690,7 +670,8 @@ function clearAllData() {
     StorageManager.stopWatching();
     StorageManager._fileHandle.remove?.(); // 在 Service Workers 中移除
     StorageManager._fileHandle = null;
-    StorageManager._removeStoredFileHandle();
+    StorageManager._currentFileName = '';
+    localStorage.removeItem('habit-tracker-current-file');
   }
   habits = []; checkins = {}; tasks = []; taskChecks = {}; diaries = {};
   save(); closeConfirm(); render(); renderTasks(); renderDiary(); showFeedback('已清空全部数据');
