@@ -1025,9 +1025,6 @@ function setupSwipe() {
     // 最小滑动距离和最大时间
     if (Math.abs(diffX) < 50 || elapsed > 500) return;
 
-    // 日历弹出层打开时，不处理任何滑动
-    if (calendarPopover.classList.contains('is-open')) return;
-
     // 日历弹出层打开时，滑动切换日期
     if (calendarPopover.classList.contains('is-open')) {
       const currentKey = diaryDate.value || todayKey();
