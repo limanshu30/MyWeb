@@ -21,7 +21,18 @@ const StorageManager = {
       console.log('File System Access API 不可用，使用 localStorage');
       return false;
     }
-    // 文件句柄无法跨会话持久化，用户每次需重新选择
+    // 尝试恢复上次打开的文件（句柄可能失效，但信息有用）
+    try {
+      const storedHandle = localStorage.getItem('habit-tracker-file-handle');
+      if (storedHandle) {
+        // 句柄无法跨会话恢复，但我们可以记住文件名
+        const parsed = JSON.parse(storedHandle);
+        this._currentFileName = parsed.name || '习惯打卡数据.json';
+        updateFileStatus(this._currentFileName);
+      }
+    } catch (e) {
+      console.log('恢复文件状态失败', e);
+    }
     return false;
   },
 
@@ -120,7 +131,12 @@ const StorageManager = {
       if (data.colors) localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(data.colors));
       if (data.swatches) localStorage.setItem(SWATCHES_KEY, JSON.stringify(data.swatches));
       if (data.presets) localStorage.setItem(PRESETS_KEY, JSON.stringify(data.presets));
+      // 保存文件句柄，支持后续保存到原文件
+      this._fileHandle = handle;
+      this._storeFileHandle(handle);
       this._currentFileName = handle.name;
+      // 启动自动监听
+      this.startWatching();
       updateFileStatus(handle.name);
       showFeedback(`已加载: ${handle.name}`);
       render();
