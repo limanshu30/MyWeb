@@ -409,7 +409,7 @@ const BUILTIN_PRESETS = {
   '莓语轻风': {
     '--bg': '#F8F4E8',
     '--surface': '#D5EBE4',
-    '--line': '#E8E0D0',
+    '--line': '#8D6E63',
     '--text': '#775C56',
     '--muted': '#A89888',
     '--accent': '#FFD3D4',
