@@ -991,14 +991,17 @@ function setupMainSwipe() {
   let isSwiping = false;
 
   container.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    isSwiping = false;
+    // 如果日历弹出层打开，不处理主页面滑动
+    if (!calendarPopover.classList.contains('is-open')) {
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      isSwiping = false;
+    }
   }, { passive: true });
 
   container.addEventListener('touchmove', (e) => {
-    if (!startX) return;
+    if (!startX || calendarPopover.classList.contains('is-open')) return;
     const touch = e.touches[0];
     const diffX = touch.clientX - startX;
     const diffY = touch.clientY - startY;
@@ -1009,7 +1012,10 @@ function setupMainSwipe() {
   }, { passive: false });
 
   container.addEventListener('touchend', (e) => {
-    if (!startX || !isSwiping) { startX = 0; startY = 0; isSwiping = false; return; }
+    if (!startX || !isSwiping || calendarPopover.classList.contains('is-open')) {
+      startX = 0; startY = 0; isSwiping = false;
+      return;
+    }
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - startX;
     const diffY = touch.clientY - startY;
@@ -1030,14 +1036,16 @@ function setupMainSwipe() {
   }, { passive: true });
 }
 
-// 日历滑动切换日期（不是月份）
+// 日历滑动切换日期（在日记面板上滑动，不是在日历弹出层上）
 function setupCalendarSwipe() {
-  const container = calendarPopover;
+  const container = diaryPanel;
   let startX = 0;
   let startY = 0;
   let isSwiping = false;
 
   container.addEventListener('touchstart', (e) => {
+    // 只有日记面板可见且日历未打开时才处理
+    if (diaryPanel.hidden || calendarPopover.classList.contains('is-open')) return;
     const touch = e.touches[0];
     startX = touch.clientX;
     startY = touch.clientY;
@@ -1045,7 +1053,7 @@ function setupCalendarSwipe() {
   }, { passive: true });
 
   container.addEventListener('touchmove', (e) => {
-    if (!startX) return;
+    if (!startX || diaryPanel.hidden || calendarPopover.classList.contains('is-open')) return;
     const touch = e.touches[0];
     const diffX = touch.clientX - startX;
     const diffY = touch.clientY - startY;
@@ -1056,7 +1064,10 @@ function setupCalendarSwipe() {
   }, { passive: false });
 
   container.addEventListener('touchend', (e) => {
-    if (!startX || !isSwiping) { startX = 0; startY = 0; isSwiping = false; return; }
+    if (!startX || !isSwiping || diaryPanel.hidden || calendarPopover.classList.contains('is-open')) {
+      startX = 0; startY = 0; isSwiping = false;
+      return;
+    }
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - startX;
     startX = 0; startY = 0; isSwiping = false;
