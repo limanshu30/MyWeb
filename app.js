@@ -196,8 +196,20 @@ function load() {
     checkins = normalizeCheckins(data?.checkins);
     tasks = normalizeTasks(data?.tasks);
     taskChecks = normalizeTaskChecks(data?.taskChecks);
+    carryOverTasks();
     diaries = normalizeDiaries(data?.diaries);
   } catch (e) { habits = []; checkins = {}; tasks = []; taskChecks = {}; diaries = {}; }
+}
+function carryOverTasks() {
+  const today = todayKey();
+  for (const task of tasks) {
+    if (task.createdAt < today && !taskDone(task.id)) {
+      if (!tasks.some(t => t.text === task.text && t.createdAt === today)) {
+        tasks.push({ id: makeId(), text: task.text, createdAt: today });
+      }
+    }
+  }
+  save();
 }
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, checkins, tasks, taskChecks, diaries })); } catch (e) {}
@@ -242,7 +254,7 @@ function normalizeTasks(raw) {
     const text = String(r.text || '').trim();
     if (!text || seen.has(id)) continue;
     seen.add(id);
-    result.push({ id, text });
+    result.push({ id, text, createdAt: r.createdAt || todayKey() });
   }
   return result;
 }
@@ -281,12 +293,48 @@ function isDone(habitId, key = todayKey()) { return countFor(habitId, key) >= go
 function taskDone(taskId, key = todayKey()) { return Boolean(taskChecks[key] && taskChecks[key][taskId]); }
 function playTapSound() { try { new Audio('走路踢到石头石子.mp3').play().catch(() => {}); } catch (e) {} }
 function playDeleteSound() { try { new Audio('枯枝.mp3').play().catch(() => {}); } catch (e) {} }
+function burstConfetti(x, y) {
+  const colors = getComputedStyle(document.documentElement);
+  const palette = [
+    (colors.getPropertyValue('--accent') || '#f48fb1').trim(),
+    (colors.getPropertyValue('--goal-text') || '#d2568a').trim(),
+    (colors.getPropertyValue('--warn-text') || '#c07b2a').trim(),
+    '#fff3d6', '#f48fb1', '#e8a87c', '#e8c9a0'
+  ].filter(c => c);
+  const pieceCount = 18;
+  for (let i = 0; i < pieceCount; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    const angle = (Math.PI * 2 * i) / pieceCount + (Math.random() - 0.5) * 0.8;
+    const dist = 60 + Math.random() * 80;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.background = palette[i % palette.length];
+    el.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    el.style.setProperty('--dy', (Math.sin(angle) * dist - 30) + 'px');
+    el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    el.style.width = (5 + Math.random() * 5) + 'px';
+    el.style.height = (5 + Math.random() * 5) + 'px';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
 
 function bumpCheck(habitId) {
   const key = todayKey();
   const day = checkins[key] || (checkins[key] = {});
+  const wasDone = isDone(habitId);
   day[habitId] = Math.min(goalFor(habitId), (day[habitId] || 0) + 1);
   save(); render(); playTapSound();
+  if (!wasDone && isDone(habitId)) {
+    const item = habitList.querySelector("[data-habit-id=\"" + habitId + "\"]");
+    const btn = item ? item.querySelector(".check-btn") : null;
+    if (btn) { btn.classList.add("pop"); btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true }); }
+    if (btn) { const r = btn.getBoundingClientRect(); burstConfetti(r.left + r.width/2, r.top + r.height/2); }
+  }
+  const summaryEl = document.querySelector(".habit-summary");
+  if (summaryEl) { summaryEl.classList.add("celebrate"); summaryEl.addEventListener("animationend", () => summaryEl.classList.remove("celebrate"), { once: true }); }
 }
 function decreaseCheck(habitId) {
   const key = todayKey();
@@ -324,7 +372,7 @@ function deleteHabit(habitId) {
 function addTask(value) {
   const trimmed = value.trim();
   if (!trimmed) return;
-  tasks.push({ id: makeId(), text: trimmed });
+  tasks.push({ id: makeId(), text: trimmed, createdAt: todayKey() });
   save(); renderTasks(); taskInput.value = ''; taskInput.focus();
 }
 function deleteTask(taskId) {
@@ -338,10 +386,17 @@ function deleteTask(taskId) {
 function toggleTask(taskId) {
   const key = todayKey();
   const day = taskChecks[key] || (taskChecks[key] = {});
+  const wasDone = taskDone(taskId);
   if (day[taskId]) delete day[taskId];
   else day[taskId] = true;
   if (Object.keys(day).length === 0) delete taskChecks[key];
   save(); renderTasks(); playTapSound();
+  if (!wasDone && taskDone(taskId)) {
+    const item = taskList.querySelector("[data-task-id=\"" + taskId + "\"]");
+    const btn = item ? item.querySelector(".task-check") : null;
+    if (btn) { btn.classList.add("pop"); btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true }); }
+    if (btn) { const r = btn.getBoundingClientRect(); burstConfetti(r.left + r.width/2, r.top + r.height/2); }
+  }
 }
 function clearAllData() {
   localStorage.removeItem(STORAGE_KEY);
@@ -451,14 +506,16 @@ function createHabitItem(habit) {
   deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>';
   deleteBtn.addEventListener('click', () => deleteHabit(habit.id));
 
+  item.setAttribute("data-habit-id", habit.id);
   item.append(avatar, info, counter, deleteBtn);
   return item;
 }
 
 function createTaskItem(task) {
   const done = taskDone(task.id);
+  const isCarriedOver = task.createdAt < todayKey();
   const item = document.createElement('li');
-  item.className = 'task-item' + (done ? ' done' : '');
+  item.className = 'task-item' + (done ? ' done' : '') + (isCarriedOver ? ' carried-over' : '');
 
   const checkBtn = document.createElement('button');
   checkBtn.type = 'button';
@@ -472,8 +529,16 @@ function createTaskItem(task) {
   checkBtn.addEventListener('click', () => toggleTask(task.id));
 
   const name = document.createElement('span');
-  name.className = 'task-name';
-  name.textContent = task.text;
+  const textSpan = document.createElement('span');
+  textSpan.className = 'task-name';
+  textSpan.textContent = task.text;
+  if (isCarriedOver) {
+    const carryTag = document.createElement('span');
+    carryTag.className = 'carry-tag';
+    carryTag.textContent = '上日遗留';
+    name.appendChild(carryTag);
+  }
+  name.appendChild(textSpan);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
@@ -483,6 +548,7 @@ function createTaskItem(task) {
   deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>';
   deleteBtn.addEventListener('click', () => deleteTask(task.id));
 
+  item.setAttribute("data-task-id", task.id);
   item.append(checkBtn, name, deleteBtn);
   return item;
 }
@@ -560,7 +626,8 @@ function renderTasks() {
   taskList.replaceChildren(...tasks.map(createTaskItem));
   const doneCount = tasks.filter(t => taskDone(t.id)).length;
   taskDoneCountEl.textContent = doneCount;
-  taskTotalCountEl.textContent = tasks.length;
+  const todayTasks = tasks.filter(t => t.createdAt === todayKey());
+  taskTotalCountEl.textContent = todayTasks.length || tasks.length;
   taskEmptyState.classList.toggle('hidden', tasks.length > 0);
 }
 function renderDiary() {
