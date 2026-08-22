@@ -397,6 +397,76 @@ const DEFAULT_SWATCHES = {
   '--slider-bg': ['#FFFFFF', '#FDFDFD', '#FFF7EF', '#F5F5F5', '#FCE4EC', '#E3F2FD', '#E8F5E9', '#FFF3E0'],
 };
 
+// ---------- 内置预设配色 ----------
+const BUILTIN_PRESETS = {
+  '莓语轻风': {
+    light: {
+      '--bg': '#F8F4E8',
+      '--surface': '#FFFFFF',
+      '--line': '#E8E0D0',
+      '--text': '#775C56',
+      '--muted': '#A89888',
+      '--accent': '#FFD3D4',
+      '--add-bg': '#FFD3D4',
+      '--slider-bg': '#F8F4E8',
+    },
+    dark: {
+      '--bg': '#2A2520',
+      '--surface': '#3A3530',
+      '--line': '#4A4540',
+      '--text': '#E8DDD0',
+      '--muted': '#A89888',
+      '--accent': '#FFB0B5',
+      '--add-bg': '#FFB0B5',
+      '--slider-bg': '#2A2520',
+    }
+  },
+  '薄荷微甜': {
+    light: {
+      '--bg': '#E8F5E9',
+      '--surface': '#F1F8E9',
+      '--line': '#C8E6C9',
+      '--text': '#2E7D32',
+      '--muted': '#689F38',
+      '--accent': '#81C784',
+      '--add-bg': '#A5D6A7',
+      '--slider-bg': '#E8F5E9',
+    },
+    dark: {
+      '--bg': '#1B3A20',
+      '--surface': '#2A4A2E',
+      '--line': '#3A5A3E',
+      '--text': '#C8E6C9',
+      '--muted': '#81C784',
+      '--accent': '#66BB6A',
+      '--add-bg': '#81C784',
+      '--slider-bg': '#1B3A20',
+    }
+  },
+  '暮光薰衣草': {
+    light: {
+      '--bg': '#F3E5F5',
+      '--surface': '#FAF0FC',
+      '--line': '#E1BEE7',
+      '--text': '#6A1B9A',
+      '--muted': '#9C27B0',
+      '--accent': '#CE93D8',
+      '--add-bg': '#BA68C8',
+      '--slider-bg': '#F3E5F5',
+    },
+    dark: {
+      '--bg': '#2A1A30',
+      '--surface': '#3A2A40',
+      '--line': '#4A3A50',
+      '--text': '#E1BEE7',
+      '--muted': '#CE93D8',
+      '--accent': '#BA68C8',
+      '--add-bg': '#AB47BC',
+      '--slider-bg': '#2A1A30',
+    }
+  },
+};
+
 const GROUP_VARS = {
   bg: ['--bg', '--surface', '--line'],
   text: ['--text', '--muted'],
@@ -1575,16 +1645,20 @@ function setupColorPicker() {
 function getPresets() {
   try {
     if (StorageManager._fileHandle) {
-      // 文件模式下从文件加载，返回空对象让默认预设显示
+      // 文件模式下从文件加载，返回 null 表示需要从文件读取
       return null;
     }
     const raw = localStorage.getItem(PRESETS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
+      if (parsed && typeof parsed === 'object') {
+        // 合并内置预设
+        return { ...BUILTIN_PRESETS, ...parsed };
+      }
     }
   } catch (e) {}
-  return {};
+  // 返回内置预设作为默认
+  return { ...BUILTIN_PRESETS };
 }
 function savePresets(presets) {
   if (!presets || typeof presets !== 'object') return;
@@ -1617,18 +1691,28 @@ function renderPresetList() {
     const span = document.createElement('span');
     span.className = 'preset-name';
     span.textContent = name;
-    const actions = document.createElement('div');
-    actions.className = 'preset-actions';
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'preset-load';
-    loadBtn.textContent = '加载';
-    loadBtn.addEventListener('click', () => loadPreset(name));
-    const delBtn = document.createElement('button');
-    delBtn.className = 'preset-del';
-    delBtn.textContent = '删除';
-    delBtn.addEventListener('click', () => deletePreset(name));
-    actions.append(loadBtn, delBtn);
-    li.append(span, actions);
+    // 内置预设只显示"加载"按钮
+    const isBuiltin = !!BUILTIN_PRESETS[name];
+    if (isBuiltin) {
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'preset-load';
+      loadBtn.textContent = '加载';
+      loadBtn.addEventListener('click', () => loadPreset(name));
+      li.append(span, loadBtn);
+    } else {
+      const actions = document.createElement('div');
+      actions.className = 'preset-actions';
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'preset-load';
+      loadBtn.textContent = '加载';
+      loadBtn.addEventListener('click', () => loadPreset(name));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'preset-del';
+      delBtn.textContent = '删除';
+      delBtn.addEventListener('click', () => deletePreset(name));
+      actions.append(loadBtn, delBtn);
+      li.append(span, actions);
+    }
     presetList.appendChild(li);
   }
 }
@@ -1650,6 +1734,11 @@ function loadPreset(name) {
 }
 
 function deletePreset(name) {
+  // 内置预设不能删除
+  if (BUILTIN_PRESETS[name]) {
+    showFeedback('内置预设不能删除');
+    return;
+  }
   if (!confirm(`确定要删除预设「${name}」吗？`)) return;
   const presets = getPresets();
   delete presets[name];
