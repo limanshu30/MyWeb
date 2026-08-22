@@ -14,6 +14,9 @@ const StorageManager = {
   _watchTimer: null,
   _lastFileContent: null,
   _watchEnabled: false,
+  _colorsCache: null,
+  _swatchesCache: null,
+  _presetsCache: null,
 
   async init() {
     // 检查是否支持 File System Access API
@@ -98,15 +101,15 @@ const StorageManager = {
       taskChecks = normalizeTaskChecks(data?.taskChecks);
       diaries = normalizeDiaries(data?.diaries);
       // 恢复配色和主题
-      if (data.colors) { storeColors(data.colors); }
-      if (data.swatches) { storeSwatches(data.swatches); }
-      if (data.presets) { savePresets(data.presets); }
+      if (data.colors) { storeColors(data.colors); StorageManager._colorsCache = data.colors; }
+      if (data.swatches) { storeSwatches(data.swatches); StorageManager._swatchesCache = data.swatches; }
+      if (data.presets) { savePresets(data.presets); StorageManager._presetsCache = data.presets; }
       if (data.theme) { applyTheme(data.theme); }
       // 保存到 localStorage 确保刷新后不丢失
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, checkins, tasks, taskChecks, diaries }));
-      if (data.colors) localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(data.colors));
-      if (data.swatches) localStorage.setItem(SWATCHES_KEY, JSON.stringify(data.swatches));
-      if (data.presets) localStorage.setItem(PRESETS_KEY, JSON.stringify(data.presets));
+      if (data.colors) { localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(data.colors)); StorageManager._colorsCache = data.colors; }
+      if (data.swatches) { localStorage.setItem(SWATCHES_KEY, JSON.stringify(data.swatches)); StorageManager._swatchesCache = data.swatches; }
+      if (data.presets) { localStorage.setItem(PRESETS_KEY, JSON.stringify(data.presets)); StorageManager._presetsCache = data.presets; }
       // 保存文件句柄（仅当前会话有效）和文件名
       this._fileHandle = handle;
       this._currentFileName = handle.name;
@@ -213,9 +216,9 @@ const StorageManager = {
       tasks = normalizeTasks(data?.tasks);
       taskChecks = normalizeTaskChecks(data?.taskChecks);
       diaries = normalizeDiaries(data?.diaries);
-      if (data.colors) { storeColors(data.colors); }
-      if (data.swatches) { storeSwatches(data.swatches); }
-      if (data.presets) { savePresets(data.presets); }
+      if (data.colors) { storeColors(data.colors); StorageManager._colorsCache = data.colors; }
+      if (data.swatches) { storeSwatches(data.swatches); StorageManager._swatchesCache = data.swatches; }
+      if (data.presets) { savePresets(data.presets); StorageManager._presetsCache = data.presets; }
       if (data.theme) { applyTheme(data.theme); }
     } catch (e) {
       console.error('加载文件失败', e);
@@ -668,9 +671,12 @@ function toggleTask(taskId) {
 function clearAllData() {
   if (StorageManager._fileHandle) {
     StorageManager.stopWatching();
-    StorageManager._fileHandle.remove?.(); // 在 Service Workers 中移除
+    // FileHandle.remove() 在大多数浏览器不可用，跳过
     StorageManager._fileHandle = null;
     StorageManager._currentFileName = '';
+    StorageManager._colorsCache = null;
+    StorageManager._swatchesCache = null;
+    StorageManager._presetsCache = null;
     localStorage.removeItem('habit-tracker-current-file');
   }
   habits = []; checkins = {}; tasks = []; taskChecks = {}; diaries = {};
@@ -910,7 +916,7 @@ function renderDiary() {
   const entry = diaries[key];
   diaryDateLabel.textContent = formatDiaryDate(key);
   diaryText.value = entry ? entry.text : '';
-  diaryList.replaceChildren(...Object.keys(diaries).sort((a, b) => a < b ? 1 : -1).map(createDiaryEntry));
+  diaryList.replaceChildren(...Object.keys(diaries).sort((a, b) => a < b ? -1 : 1).map(createDiaryEntry));
   diaryEmptyState.classList.toggle('hidden', Object.keys(diaries).length > 0);
   if (calendarPopover.classList.contains('is-open')) renderCalendar();
 }
@@ -1060,9 +1066,9 @@ function setupSwipe() {
 // ============================================================
 function getStoredColors() {
   try {
-    if (StorageManager._fileHandle) {
-      // 文件模式下，尝试从文件加载（异步，这里返回缓存）
-      return null;
+    if (StorageManager._fileHandle && StorageManager._colorsCache) {
+      // 文件模式下，从内存缓存中读取
+      return StorageManager._colorsCache;
     }
     const raw = localStorage.getItem(COLOR_CONFIG_KEY);
     if (raw) {
@@ -1076,9 +1082,10 @@ function storeColors(colors) {
   try {
     if (StorageManager._fileHandle) {
       // 保存到文件（异步）
+      StorageManager._colorsCache = colors;
       const data = StorageManager._exportData();
       data.colors = colors;
-      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(e => console.error('保存配色失败', e));
     } else {
       localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(colors));
     }
@@ -1151,11 +1158,11 @@ function saveCurrentColors() {
 function resetAllColors() {
   if (!confirm('确定要重置全部配色吗？这将删除所有自定义颜色（亮色和暗色）。')) return;
   if (StorageManager._fileHandle) {
-    // 清空内存中的配色
-    const colors = getStoredColors() || {};
-    delete colors['light'];
-    delete colors['dark'];
-    storeColors(colors);
+    StorageManager._colorsCache = null;
+    // 尝试写入文件
+    const data = StorageManager._exportData();
+    data.colors = {};
+    StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(e => console.error('保存配色失败', e));
   } else {
     localStorage.removeItem(COLOR_CONFIG_KEY);
   }
@@ -1168,8 +1175,8 @@ function resetAllColors() {
 // ============================================================
 function getStoredSwatches() {
   try {
-    if (StorageManager._fileHandle) {
-      return null; // 实际会在 loadFromFile 中处理
+    if (StorageManager._fileHandle && StorageManager._swatchesCache) {
+      return StorageManager._swatchesCache;
     }
     const raw = localStorage.getItem(SWATCHES_KEY);
     if (raw) {
@@ -1182,9 +1189,10 @@ function getStoredSwatches() {
 function storeSwatches(swatches) {
   try {
     if (StorageManager._fileHandle) {
+      StorageManager._swatchesCache = swatches;
       const data = StorageManager._exportData();
       data.swatches = swatches;
-      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(e => console.error('保存色板失败', e));
     } else {
       localStorage.setItem(SWATCHES_KEY, JSON.stringify(swatches));
     }
@@ -1245,7 +1253,8 @@ function renderSwatchesForItem(item, varName) {
     span.setAttribute('aria-label', `颜色 ${color}${color !== colors[0] ? '，双击编辑' : ''}`);
 
     const defaultList = DEFAULT_SWATCHES[varName] || [];
-    if (!defaultList.includes(color)) {
+    // 大小写不敏感比较
+    if (!defaultList.some(c => c.toLowerCase() === color.toLowerCase())) {
       span.dataset.edited = 'true';
     }
 
@@ -1574,9 +1583,8 @@ function setupColorPicker() {
 // ============================================================
 function getPresets() {
   try {
-    if (StorageManager._fileHandle) {
-      // 文件模式下从文件加载，返回空对象让默认预设显示
-      return null;
+    if (StorageManager._fileHandle && StorageManager._presetsCache) {
+      return StorageManager._presetsCache;
     }
     const raw = localStorage.getItem(PRESETS_KEY);
     if (raw) {
@@ -1590,9 +1598,10 @@ function savePresets(presets) {
   if (!presets || typeof presets !== 'object') return;
   try {
     if (StorageManager._fileHandle) {
+      StorageManager._presetsCache = presets;
       const data = StorageManager._exportData();
       data.presets = presets;
-      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(console.error);
+      StorageManager._fileHandle.createWritable().then(w => w.write(JSON.stringify(data, null, 2)).then(c => c.close())).catch(e => console.error('保存预设失败', e));
     } else {
       localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
     }
